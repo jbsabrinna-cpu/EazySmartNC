@@ -1,130 +1,135 @@
 # EazySmartNC
 
-**FAO conversationnelle pour Centroid CNC12, dans l'esprit du SmartNC Heidenhain.**
+🇫🇷 [Version française](README.fr.md)
 
-EazySmartNC (application *EazyNC*) permet de programmer une fraiseuse CNC **sans écrire de G-code** : on remplit des blocs (matière, poches, perçages, contournages…), le logiciel calcule les trajectoires, les simule en 3D et génère un programme `.nc` prêt pour **Centroid CNC12** (Acorn, AcornSix, Oak…).
+**Conversational CAM for Centroid CNC12, in the spirit of Heidenhain SmartNC.**
 
-Écrit en C++ / Qt 6 par un fraiseur, pour des fraiseurs.
+EazySmartNC (application *EazyNC*) lets you program a CNC mill **without writing G-code**: you fill in blocks (stock, pockets, drilling, profiles…), the software computes the toolpaths, simulates them in 3D and generates a `.nc` program ready for **Centroid CNC12** (Acorn, AcornSix, Oak…).
 
-![Simulation d'une poche étagée avec îlots](docs/images/simulation-poche-etagee.gif)
+Written in C++ / Qt 6 by a machinist, for machinists.
 
----
+> The user interface is currently in French.
 
-## Aperçu
-
-### Poche de contour avec îlots
-
-Une ligne par contour : **Poche** ou **Îlot**, avec Z départ et profondeur. L'ordre de la liste compte, comme des calques. Le cycle découpe la hauteur en tranches à chaque cote (fonds de poche, dessus d'îlots) et calcule la zone à vider à chaque passe.
-
-![Saisie d'une poche contour](docs/images/saisie-poche-contour.gif)
-
-### Convertisseur DXF
-
-Sélection d'un contour d'un clic (enchaînement automatique, sens d'usinage, éléments à cocher façon TNC) et des positions de perçage au cadre, avec un filtre par diamètre.
-
-![Convertisseur DXF](docs/images/convertisseur-dxf.gif)
-
-### Simulation 3D
-
-Enlèvement de matière en temps réel, une couleur par outil, lecture ligne à ligne du G-code.
-
-![Simulation d'un corps de Telecaster](docs/images/simulation-telecaster.png)
+![Stepped pocket with islands, 3D simulation](docs/images/simulation-poche-etagee.gif)
 
 ---
 
-## Fonctionnalités
+## Overview
 
-**Programmation par blocs**
-- Matière (BLK FORM) avec paramètres hérités par tous les blocs : Z approche, saut de bride, Z liaison, origine.
-- Sélection, copie, coupe et insertion de plusieurs blocs.
-- Fichiers `.enc` (programme), `.cnt` (contours) et `.pnt` (modèles de points).
+### Contour pocket with islands
+
+One line per contour: **Pocket** or **Island**, with start Z and depth. The order of the list matters, like layers. The cycle splits the height into bands at every level (pocket floors, island tops) and computes the area to clear at each pass.
+
+![Entering a contour pocket](docs/images/saisie-poche-contour.gif)
+
+### DXF converter
+
+Pick a contour with one click (automatic chaining, cutting direction, TNC-style element checkboxes) and select drilling positions with a window, with a diameter filter.
+
+![DXF converter](docs/images/convertisseur-dxf.gif)
+
+### 3D simulation
+
+Real-time stock removal, one color per tool, line-by-line G-code playback.
+
+![Telecaster body simulation](docs/images/simulation-telecaster.png)
+
+---
+
+## Features
+
+**Block programming**
+- Stock definition (BLK FORM) with parameters inherited by every block: approach Z, clamp clearance, linking Z, work offset.
+- Select, copy, cut and insert several blocks.
+- Files: `.enc` (program), `.cnt` (contours) and `.pnt` (point patterns).
 
 **Cycles**
-- Poche rectangulaire et poche circulaire.
-- **Poche de contour** avec îlots, poches étagées, îlots plus bas que la surface, et Z départ par contour.
-- Contournage : extérieur avec ébauche adaptative depuis le brut, ou R0 / RL / RR. Entrées et sorties perpendiculaires, en arc ou en ligne tangente.
-- Fraisage de trou (alésage hélicoïdal).
-- Perçage simple et débourrage, pointage, taraudage, alésage.
-- Plongée directe, en hélice ou en rampe, à l'avance pendulaire.
-- Ébauche et finition séparées : surépaisseurs latérale et fond, finition des fonds et des parois.
-- Avalant ou opposition.
-- Compensation calculée par EazyNC (Clipper2) : le G-code reste en G40.
+- Rectangular and circular pockets.
+- **Contour pocket** with islands, stepped pockets, islands below the top surface, and a start Z per contour.
+- Profile milling: outside with adaptive roughing from the stock, or R0 / RL / RR. Perpendicular, arc or tangent-line lead-in and lead-out.
+- Helical hole milling (boring).
+- Drilling and peck drilling, spot drilling, tapping, reaming.
+- Straight, helical or ramp plunge, with its own ramp feed.
+- Separate roughing and finishing: side and floor stock, floor and wall finishing.
+- Climb or conventional milling.
+- Cutter compensation computed by EazyNC (Clipper2): the G-code stays in G40.
 
-**Outils et import**
-- Table d'outils : rayon, nombre de dents, angle de rampe. Avances en mm/min, mm/tr ou mm/dent, et vitesse de coupe.
-- Convertisseur DXF : contours, positions, origine, mm/pouce, tolérance d'enchaînement.
-- Import STEP/IGES optionnel via OpenCASCADE.
+**Tools and import**
+- Tool table: radius, number of flutes, ramp angle. Feeds in mm/min, mm/rev or mm/tooth, and cutting speed.
+- DXF converter: contours, positions, origin, mm/inch, chaining tolerance.
+- Optional STEP/IGES import via OpenCASCADE.
 
-**Simulation et machine**
-- Simulation 3D (OpenGL) avec légende par outil.
-- Pages Mode manuel, Exécution et MDI reliées à CNC12 via l'API Centroid (optionnel).
+**Simulation and machine**
+- 3D simulation (OpenGL) with a per-tool legend.
+- Manual, Run and MDI pages connected to CNC12 through the Centroid API (optional).
 
 ---
 
-## Compilation
+## Building
 
-**Environnement testé** : Windows 10/11, **Qt 6.8 (MSVC 2022, 64 bits)**, Qt Creator.
+**Tested environment**: Windows 10/11, **Qt 6.8 (MSVC 2022, 64-bit)**, Qt Creator.
 
-1. Cloner le dépôt et ouvrir `EazyNC.pro` dans Qt Creator.
-2. **Icônes TNC** : elles ne sont pas fournies (voir plus bas). Créer des icônes provisoires pour que le projet compile :
+1. Clone the repository and open `EazyNC.pro` in Qt Creator.
+2. **TNC icons**: they are not included (see below). Create placeholder icons so the project compiles:
    ```
    pip install pillow
    python tools/generer_icones_provisoires.py
    ```
-3. Compiler et lancer (kit *Desktop Qt 6.8 MSVC2022 64bit*).
-4. Copier `eazync.msg` dans un dossier `lang/` à côté de l'exécutable : ce sont les textes de l'interface.
+3. Build and run (kit *Desktop Qt 6.8 MSVC2022 64bit*).
+4. Copy `eazync.msg` into a `lang/` folder next to the executable: it holds the interface texts.
 
-**Options qmake** (*Projets > Build > qmake > Arguments supplémentaires*)
-- `CONFIG+=WITH_OCC` : import STEP/IGES. Nécessite OpenCASCADE via vcpkg ; adapter `VCPKG_ROOT` dans `EazyNC.pro`.
-- `DEFINES+=WITH_CENTROID_API` : liaison temps réel avec CNC12. Nécessite le wrapper `CentroidWrapper` (sources dans `CentroidWrapper/`) et la DLL de l'API Centroid, fournie avec l'installation de CNC12.
+**qmake options** (*Projects > Build > qmake > Additional arguments*)
+- `CONFIG+=WITH_OCC`: STEP/IGES import. Requires OpenCASCADE via vcpkg; adjust `VCPKG_ROOT` in `EazyNC.pro`.
+- `DEFINES+=WITH_CENTROID_API`: real-time link with CNC12. Requires the `CentroidWrapper` (sources in `CentroidWrapper/`) and the Centroid API DLL, which comes with the CNC12 installation.
 
-Sans ces options, EazyNC fonctionne en mode autonome : programmation, simulation et génération du `.nc`.
+Without these options, EazyNC runs standalone: programming, simulation and `.nc` generation.
 
 ---
 
-## Ressources non incluses
+## Resources not included
 
-Le dépôt est public. Ces éléments appartiennent à Heidenhain et ne sont **pas** publiés :
+The repository is public. These items belong to Heidenhain and are **not** published:
 
-| Élément | Effet | Que faire |
+| Item | Effect | What to do |
 |---|---|---|
-| Police `TNC640Global.ttf` | L'interface utilise une police de remplacement | Rien d'obligatoire. Si vous disposez de la police, placez-la à la racine du projet. |
-| Icônes `icons/unit/` (94 fichiers, style TNC) | `icons.qrc` ne compile pas sans elles | Lancer `tools/generer_icones_provisoires.py`, ou fournir vos propres icônes (liste dans `docs/icones-tnc-a-fournir.txt`). |
+| Font `TNC640Global.ttf` | The interface uses a fallback font | Nothing required. If you have the font, put it at the project root. |
+| Icons `icons/unit/` (94 files, TNC style) | `icons.qrc` does not compile without them | Run `tools/generer_icones_provisoires.py`, or supply your own icons (list in `docs/icones-tnc-a-fournir.txt`). |
 
 ---
 
-## Organisation du code
+## Code layout
 
 ```
-EazyNC.pro                 projet Qt
-mainwindow.*               fenêtre principale, softkeys, navigation
-programmepage.*            liste des blocs, génération du G-code
-uniteditor.* / UnitEditor.ui   pages de saisie des blocs
-cycles/                    générateurs de cycles (un fichier par cycle)
-gcodeengine.*              en-tête et fin de programme, structures de données
-clipper2/ clipper2utils.*  calcul des décalages et booléens (Clipper2)
-cadviewwidget.* cadimporter.*   convertisseur DXF / STEP
-sim3dwidget.* simulationpage.h  simulation 3D
-tooldatabase.* tooltabledialog.*  table d'outils
-modules/ CentroidWrapper/  liaison avec CNC12 (optionnel)
-icons/                     icônes et images d'aide
-docs/images/               captures de ce README
+EazyNC.pro                 Qt project
+mainwindow.*               main window, softkeys, navigation
+programmepage.*            block list, G-code generation
+uniteditor.* / UnitEditor.ui   block input pages
+cycles/                    cycle generators (one file per cycle)
+gcodeengine.*              program header and footer, data structures
+clipper2/ clipper2utils.*  offsets and boolean operations (Clipper2)
+cadviewwidget.* cadimporter.*   DXF / STEP converter
+sim3dwidget.* simulationpage.h  3D simulation
+tooldatabase.* tooltabledialog.*  tool table
+modules/ CentroidWrapper/  link with CNC12 (optional)
+icons/                     icons and help images
+docs/images/               screenshots for this README
 ```
 
 ---
 
-## Feuille de route
+## Roadmap
 
-- [ ] Cycle de pré-perçage (avant-trous pour la plongée directe)
-- [ ] Avalant / opposition dans le cycle de contournage
-- [ ] Vue 3D STEP : origine par faces et arêtes, reconnaissance des splines
-- [ ] Mode pouce (G20)
-- [ ] Réorganisation du code en `src/`, `ui/`, `resources/`
+- [ ] Pre-drilling cycle (pilot holes for straight plunge)
+- [x] Climb / conventional in the profile cycle
+- [ ] STEP 3D view: origin from faces and edges, spline recognition
+- [ ] Inch mode (G20)
+- [ ] English interface
+- [ ] Reorganize the code into `src/`, `ui/`, `resources/`
 
 ---
 
-## Contribuer
+## Contributing
 
-Les retours de fraiseurs et de développeurs sont les bienvenus : ouvrez une *Issue* pour un bug ou une idée de cycle, ou une *Pull Request*.
+Feedback from machinists and developers is welcome: open an *Issue* for a bug or a cycle idea, or a *Pull Request*.
 
-Développeur : **JB**, fraiseur sur commande numérique (Heidenhain TNC 530 / 620 / 640).
+Developer: **JB**, CNC machinist (Heidenhain TNC 530 / 620 / 640).
