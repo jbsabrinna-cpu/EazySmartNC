@@ -1,0 +1,18 @@
+<svg width="380" height="200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="380" height="200" fill="#13151a"/>
+  <!-- Surface Z0 -->
+  <rect x="60" y="40" width="260" height="15" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+  <text x="330" y="52" font-size="10" fill="rgba(255,255,255,0.4)" font-family="monospace">Z0</text>
+  <!-- Poche vue de côté -->
+  <rect x="100" y="55" width="180" height="90" fill="rgba(86,212,78,0.07)" stroke="rgba(86,212,78,0.5)" stroke-width="1.5"/>
+  <!-- Flèche profondeur -->
+  <line x1="310" y1="55" x2="310" y2="145" stroke="#f0a500" stroke-width="1.5"/>
+  <polygon points="310,55 306,63 314,63" fill="#f0a500"/>
+  <polygon points="310,145 306,137 314,137" fill="#f0a500"/>
+  <line x1="295" y1="55"  x2="318" y2="55"  stroke="#f0a500" stroke-width="1"/>
+  <line x1="295" y1="145" x2="318" y2="145" stroke="#f0a500" stroke-width="1"/>
+  <text x="340" y="105" text-anchor="middle" font-size="11" fill="#f0a500" font-family="monospace" transform="rotate(90,340,105)">Profondeur</text>
+  <!-- Fond poche -->
+  <line x1="100" y1="145" x2="280" y2="145" stroke="#56d44e" stroke-width="2"/>
+  <text x="190" y="195" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.4)" font-family="monospace">Profondeur totale depuis Z0 (valeur positive)</text>
+</svg>

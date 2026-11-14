@@ -1,0 +1,94 @@
+icons/unit/BACK.png
+icons/unit/absolut.png
+icons/unit/appel outil.png
+icons/unit/blk_form.png
+icons/unit/deplacement g1 g0.png
+icons/unit/fichier contour.png
+icons/unit/fin de programme.png
+icons/unit/gravure texte.png
+icons/unit/incremental.png
+icons/unit/insert fonction m.png
+icons/unit/insert gcode.png
+icons/unit/select outil.png
+icons/unit/smartnc_unit_pattern.png
+icons/unit/softkey navigation retour.png
+icons/unit/tableau outil.png
+icons/unit/tous les cycle usinage.png
+icons/unit/bouton radio/aller retour contour avalant-oposition.png
+icons/unit/bouton radio/avalant.png
+icons/unit/bouton radio/correction 0.png
+icons/unit/bouton radio/descente direct.png
+icons/unit/bouton radio/descente helicoidale.png
+icons/unit/bouton radio/descente pendulaire.png
+icons/unit/bouton radio/ebauche finition.png
+icons/unit/bouton radio/ebauche.png
+icons/unit/bouton radio/finition.png
+icons/unit/bouton radio/fraisage poche circulaire avalant.png
+icons/unit/bouton radio/fraisage poche circulaire oposition.png
+icons/unit/bouton radio/fraisage poche rectangulaire avalant.png
+icons/unit/bouton radio/fraisage poche rectangulaire oposition.png
+icons/unit/bouton radio/fraisage surfacage strategie.png
+icons/unit/bouton radio/oposition.png
+icons/unit/bouton radio/strategie_usinage_0.png
+icons/unit/bouton radio/strategie_usinage_1.png
+icons/unit/bouton radio/strategie_usinage_2.png
+icons/unit/bouton radio/tool_gegenlauf.png
+icons/unit/bouton radio/tool_gleichlauf.png
+icons/unit/bouton visioneuse dxf/3D.png
+icons/unit/bouton visioneuse dxf/XY_XZ.png
+icons/unit/bouton visioneuse dxf/XY_XZ_alt.png
+icons/unit/bouton visioneuse dxf/aufloesung.png
+icons/unit/bouton visioneuse dxf/bzp.png
+icons/unit/bouton visioneuse dxf/circle_points.png
+icons/unit/bouton visioneuse dxf/diameter.png
+icons/unit/bouton visioneuse dxf/invers.png
+icons/unit/bouton visioneuse dxf/layer.png
+icons/unit/bouton visioneuse dxf/mm_inch.png
+icons/unit/bouton visioneuse dxf/nullpunkt_setzen.png
+icons/unit/bouton visioneuse dxf/outline.png
+icons/unit/bouton visioneuse dxf/position.png
+icons/unit/bouton visioneuse dxf/tolerance.png
+icons/unit/bouton visioneuse dxf/tool_path.png
+icons/unit/bouton visioneuse dxf/trash.png
+icons/unit/cycle de contour/cycle de contournage.png
+icons/unit/cycle de contour/finition coin poche contour.png
+icons/unit/cycle de contour/finition poche de contour.png
+icons/unit/cycle de contour/fraisage de poche contour.png
+icons/unit/cycle de contour/tous les cycle de contour.png
+icons/unit/cycle de percage filet/alesage a l'alesoir.png
+icons/unit/cycle de percage filet/alesage tete a aleser.png
+icons/unit/cycle de percage filet/filetage avec foret fileter.png
+icons/unit/cycle de percage filet/filetage avec fraise a fileter.png
+icons/unit/cycle de percage filet/filetage exterieur.png
+icons/unit/cycle de percage filet/pointage.png
+icons/unit/cycle de percage filet/tous les cycle filet.png
+icons/unit/cycle de percage filet/tous les cycle percage.png
+icons/unit/cycle predefinie poche tenon et surfacage/faisage poligone.png
+icons/unit/cycle predefinie poche tenon et surfacage/fraisage de poche circulaire.png
+icons/unit/cycle predefinie poche tenon et surfacage/fraisage de poche rectangulaire.png
+icons/unit/cycle predefinie poche tenon et surfacage/fraisage de trou.png
+icons/unit/cycle predefinie poche tenon et surfacage/rainure circulaire.png
+icons/unit/cycle predefinie poche tenon et surfacage/rainure rectangulaire.png
+icons/unit/cycle predefinie poche tenon et surfacage/surfacage.png
+icons/unit/cycle predefinie poche tenon et surfacage/tenon circulaire.png
+icons/unit/cycle predefinie poche tenon et surfacage/tenon rectangulaire.png
+icons/unit/cycle predefinie poche tenon et surfacage/tout les cycles poches tenons.png
+icons/unit/logo explorateur fichier/filetype_pnt.bmp
+icons/unit/logo explorateur fichier/logo .cnt.bmp
+icons/unit/logo explorateur fichier/logo .dxf.bmp
+icons/unit/logo explorateur fichier/logo .enc.bmp
+icons/unit/logo explorateur fichier/logo fichier de point.bmp
+icons/unit/model de point/cercle.png
+icons/unit/model de point/grille.png
+icons/unit/model de point/ligne.png
+icons/unit/model de point/point.png
+icons/unit/parametre onglet/avance descente.png
+icons/unit/parametre onglet/avance pendulaire.png
+icons/unit/parametre onglet/avance travaille.png
+icons/unit/simulation/sim brut sans chemin-avec-ou-que le chemin.png
+icons/unit/simulation/sim outil vue solid-transparant-sans.png
+icons/unit/unit conversion de donnees/convertion de donner softkey.png
+icons/unit/unit conversion de donnees/decalage origine.png
+icons/unit/unit conversion de donnees/facteur echelle.png
+icons/unit/unit conversion de donnees/fonction miroir.png
+icons/unit/unit conversion de donnees/rotation origine.png

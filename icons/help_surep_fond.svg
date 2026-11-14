@@ -1,0 +1,20 @@
+<svg width="380" height="200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="380" height="200" fill="#13151a"/>
+  <!-- Parois -->
+  <line x1="80"  y1="30" x2="80"  y2="160" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+  <line x1="300" y1="30" x2="300" y2="160" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+  <!-- Fond ébauche (avec surep) -->
+  <line x1="80" y1="145" x2="300" y2="145" stroke="#f0a500" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <!-- Fond final -->
+  <line x1="80" y1="158" x2="300" y2="158" stroke="#56d44e" stroke-width="2"/>
+  <!-- Hachures matière fond -->
+  <rect x="80" y="145" width="220" height="13" fill="rgba(240,165,0,0.1)"/>
+  <!-- Flèche surep fond -->
+  <line x1="190" y1="145" x2="190" y2="158" stroke="#f0a500" stroke-width="1.5"/>
+  <polygon points="190,145 186,153 194,153" fill="#f0a500"/>
+  <polygon points="190,158 186,150 194,150" fill="#f0a500"/>
+  <text x="210" y="155" font-size="10" fill="#f0a500" font-family="monospace">surep fond</text>
+  <!-- Labels -->
+  <text x="190" y="178" text-anchor="middle" font-size="9" fill="#56d44e" font-family="monospace">cote fond finale (Z total)</text>
+  <text x="190" y="195" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.4)" font-family="monospace">Surépaisseur en profondeur (mm)</text>
+</svg>

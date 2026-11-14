@@ -1,0 +1,22 @@
+<svg width="380" height="200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="380" height="200" fill="#13151a"/>
+  <!-- Passe 1 -->
+  <rect x="70" y="60" width="100" height="80" fill="rgba(86,212,78,0.12)" stroke="rgba(86,212,78,0.5)" stroke-width="1.5"/>
+  <!-- Passe 2 -->
+  <rect x="130" y="60" width="100" height="80" fill="rgba(68,170,255,0.12)" stroke="rgba(68,170,255,0.5)" stroke-width="1.5"/>
+  <!-- Passe 3 -->
+  <rect x="190" y="60" width="100" height="80" fill="rgba(221,136,255,0.12)" stroke="rgba(221,136,255,0.5)" stroke-width="1.5"/>
+  <!-- Zone recouvrement P1-P2 -->
+  <rect x="130" y="60" width="40" height="80" fill="rgba(240,165,0,0.2)"/>
+  <!-- Flèche AE -->
+  <line x1="70"  y1="155" x2="130" y2="155" stroke="#f0a500" stroke-width="1.5"/>
+  <polygon points="70,155  78,151  78,159" fill="#f0a500"/>
+  <polygon points="130,155 122,151 122,159" fill="#f0a500"/>
+  <text x="100" y="170" text-anchor="middle" font-size="10" fill="#f0a500" font-family="monospace">AE</text>
+  <!-- Labels -->
+  <text x="120" y="56" text-anchor="middle" font-size="9" fill="rgba(86,212,78,0.7)" font-family="monospace">P1</text>
+  <text x="180" y="56" text-anchor="middle" font-size="9" fill="rgba(68,170,255,0.7)" font-family="monospace">P2</text>
+  <text x="240" y="56" text-anchor="middle" font-size="9" fill="rgba(221,136,255,0.7)" font-family="monospace">P3</text>
+  <text x="150" y="104" text-anchor="middle" font-size="9" fill="#f0a500" font-family="monospace">recouv.</text>
+  <text x="190" y="195" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.4)" font-family="monospace">Recouvrement entre passes (%)</text>
+</svg>

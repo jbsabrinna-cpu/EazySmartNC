@@ -1,0 +1,24 @@
+# Build Qt / MSVC
+build/
+build-*/
+dist/
+*.user
+.qtcreator/
+.vs/
+x64/
+*.obj
+*.pdb
+*.pch
+*.ilk
+*.exp
+*.dll
+
+# Sauvegardes de travail
+*.avant-*
+*.bak
+sauvegarde*/
+*.zip
+
+# Ressources non publiées (propriété Heidenhain)
+TNC640Global.ttf
+icons/unit/

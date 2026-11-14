@@ -1,0 +1,1763 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>EazyNC_MainWindow</class>
+ <widget class="QMainWindow" name="EazyNC_MainWindow">
+  <property name="geometry">
+   <rect><x>0</x><y>0</y><width>1680</width><height>1050</height></rect>
+  </property>
+  <property name="windowTitle"><string>EazyNC</string></property>
+  <property name="styleSheet">
+   <string notr="true">
+/* ── Barre onglets style navigateur ── */
+QWidget#navBar {
+    background-color: #D6D6D6;
+    border-bottom: none;
+}
+
+/* Onglet inactif */
+QToolButton#tabModeManuel, QToolButton#tabProgrammation,
+QToolButton#tabExecution, QToolButton#tabMDI,
+QToolButton#tabSimulation, QToolButton#tabFichiers {
+    background-color: #B0B0B0;
+    color: #404040;
+    border: 1px solid #909090;
+    border-bottom: none;
+    border-radius: 4px 4px 0px 0px;
+    font-size: 10pt;
+    font-weight: bold;
+    padding: 6px 12px;
+    margin-right: 2px;
+    min-width: 80px;
+}
+QToolButton#tabModeManuel:hover, QToolButton#tabProgrammation:hover,
+QToolButton#tabExecution:hover, QToolButton#tabMDI:hover,
+QToolButton#tabSimulation:hover, QToolButton#tabFichiers:hover {
+    background-color: #C8C8C8;
+    color: #000000;
+}
+
+/* Onglet actif - fusionne avec la page */
+QToolButton#tabModeManuel[active="true"],
+QToolButton#tabProgrammation[active="true"],
+QToolButton#tabExecution[active="true"],
+QToolButton#tabMDI[active="true"],
+QToolButton#tabSimulation[active="true"],
+QToolButton#tabFichiers[active="true"] {
+    background-color: #D6D6D6;
+    color: #000000;
+    border: 1px solid #808080;
+    border-bottom: 2px solid #D6D6D6;
+    font-size: 10pt;
+    font-weight: bold;
+}
+
+/* Infos machine dans la barre */
+QLabel#lblTopTool, QLabel#lblTopFeed, QLabel#lblTopSpindle {
+    color: #000000;
+    font-size: 9pt;
+    font-weight: bold;
+    background: transparent;
+    padding: 0px 8px;
+}
+QLabel#lblConnectionStatus {
+    color: #FFFFFF;
+    font-size: 9pt;
+    font-weight: bold;
+    background-color: #00AA00;
+    border: 1px solid #008800;
+    padding: 2px 8px;
+    margin: 2px 4px;
+}
+QLabel#lblClock {
+    color: #000000;
+    font-size: 11pt;
+    font-weight: bold;
+    background: transparent;
+    padding: 0px 8px;
+}
+
+/* Pages */
+QStackedWidget#stackedPages {
+    background-color: #D6D6D6;
+    border-top: 1px solid #808080;
+}
+
+/* Softkeys */
+QStackedWidget#softkeyStack {
+    background-color: #D6D6D6;
+    border-top: 2px solid #808080;
+    min-height: 90px;
+    max-height: 90px;
+}
+QStackedWidget#softkeyStack QToolButton {
+    background-color: #D6D6D6;
+    color: #000000;
+    border: 1px solid #909090;
+    border-top: 2px solid #A0A0A0;
+    border-radius: 0px;
+    font-size: 9pt;
+    font-weight: bold;
+    padding: 4px 2px;
+    min-height: 80px;
+    max-height: 80px;
+}
+QStackedWidget#softkeyStack QToolButton:hover {
+    background-color: #C8C8C8;
+}
+QStackedWidget#softkeyStack QToolButton:pressed {
+    background-color: #B0B0B0;
+}
+QStackedWidget#softkeyStack QToolButton:disabled {
+    color: #A0A0A0;
+}
+   </string>
+  </property>
+
+  <!-- ═══════════════════════════════════════════════════════
+       CENTRAL WIDGET — layout vertical global
+       ═══════════════════════════════════════════════════════ -->
+  <widget class="QWidget" name="centralWidget">
+   <layout class="QVBoxLayout" name="mainVLayout">
+    <property name="spacing"><number>0</number></property>
+    <property name="leftMargin"><number>0</number></property>
+    <property name="topMargin"><number>0</number></property>
+    <property name="rightMargin"><number>0</number></property>
+    <property name="bottomMargin"><number>0</number></property>
+
+    <!-- ─── BARRE ONGLETS STYLE NAVIGATEUR ────────────── -->
+    <item>
+     <widget class="QWidget" name="navBar">
+      <property name="minimumHeight"><number>52</number></property>
+      <property name="maximumHeight"><number>56</number></property>
+      <layout class="QHBoxLayout" name="navLayout">
+       <property name="spacing"><number>2</number></property>
+       <property name="leftMargin"><number>4</number></property>
+       <property name="topMargin"><number>4</number></property>
+       <property name="rightMargin"><number>4</number></property>
+       <property name="bottomMargin"><number>0</number></property>
+
+       <item>
+        <widget class="QToolButton" name="tabModeManuel">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>MODE MANUEL</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="tabProgrammation">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>PROGRAMME</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="tabExecution">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>EXÉCUTION</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="tabMDI">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>MDI</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="tabSimulation">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>SIMULATION</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="tabFichiers">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>FICHIERS</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+
+       <!-- Spacer pour pousser infos a droite -->
+       <item>
+        <spacer><property name="orientation"><enum>Qt::Horizontal</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>40</width><height>0</height></size></property>
+        </spacer>
+       </item>
+
+       <!-- Infos machine compactes -->
+       <item>
+        <widget class="QLabel" name="lblTopTool">
+         <property name="text"><string>T--</string></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="lblTopFeed">
+         <property name="text"><string>F: 0 mm/m</string></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="lblTopSpindle">
+         <property name="text"><string>S: 0 rpm</string></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="lblConnectionStatus">
+         <property name="text"><string>CNC12 : connexion...</string></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="lblClock">
+         <property name="text"><string>00:00</string></property>
+        </widget>
+       </item>
+
+      </layout>
+     </widget>
+    </item>
+
+        <!-- ─── STACKED PAGES ─────────────────────────────── -->
+    <item>
+     <widget class="QStackedWidget" name="stackedPages">
+
+      <!-- ══ PAGE 0 : MANUEL ════════════════════════════ -->
+      <widget class="QWidget" name="pageManuel">
+       <layout class="QHBoxLayout" name="manuelLayout">
+        <property name="spacing"><number>8</number></property>
+        <property name="leftMargin"><number>8</number></property>
+        <property name="topMargin"><number>8</number></property>
+        <property name="rightMargin"><number>8</number></property>
+        <property name="bottomMargin"><number>8</number></property>
+
+        <!-- Colonne gauche : DRO + infos -->
+        <item>
+         <layout class="QVBoxLayout">
+          <property name="spacing"><number>6</number></property>
+
+          <!-- DRO X -->
+          <item>
+           <widget class="QFrame" name="frameWorkX">
+            <property name="minimumHeight"><number>72</number></property>
+            <property name="maximumHeight"><number>80</number></property>
+            <layout class="QHBoxLayout">
+             <property name="spacing"><number>6</number></property>
+             <property name="leftMargin"><number>6</number></property>
+             <property name="topMargin"><number>6</number></property>
+             <property name="rightMargin"><number>6</number></property>
+             <property name="bottomMargin"><number>6</number></property>
+             <item>
+              <widget class="QPushButton" name="btnWorkX">
+               <property name="maximumWidth"><number>56</number></property>
+               <property name="minimumHeight"><number>56</number></property>
+               <property name="text"><string>X</string></property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lblWorkX">
+               <property name="text"><string>+0.0000</string></property>
+               <property name="alignment"><set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set></property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+
+          <!-- DRO Y -->
+          <item>
+           <widget class="QFrame" name="frameWorkY">
+            <property name="minimumHeight"><number>72</number></property>
+            <property name="maximumHeight"><number>80</number></property>
+            <layout class="QHBoxLayout">
+             <property name="spacing"><number>6</number></property>
+             <property name="leftMargin"><number>6</number></property>
+             <property name="topMargin"><number>6</number></property>
+             <property name="rightMargin"><number>6</number></property>
+             <property name="bottomMargin"><number>6</number></property>
+             <item>
+              <widget class="QPushButton" name="btnWorkY">
+               <property name="maximumWidth"><number>56</number></property>
+               <property name="minimumHeight"><number>56</number></property>
+               <property name="text"><string>Y</string></property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lblWorkY">
+               <property name="text"><string>+0.0000</string></property>
+               <property name="alignment"><set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set></property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+
+          <!-- DRO Z -->
+          <item>
+           <widget class="QFrame" name="frameWorkZ">
+            <property name="minimumHeight"><number>72</number></property>
+            <property name="maximumHeight"><number>80</number></property>
+            <layout class="QHBoxLayout">
+             <property name="spacing"><number>6</number></property>
+             <property name="leftMargin"><number>6</number></property>
+             <property name="topMargin"><number>6</number></property>
+             <property name="rightMargin"><number>6</number></property>
+             <property name="bottomMargin"><number>6</number></property>
+             <item>
+              <widget class="QPushButton" name="btnWorkZ">
+               <property name="maximumWidth"><number>56</number></property>
+               <property name="minimumHeight"><number>56</number></property>
+               <property name="text"><string>Z</string></property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lblWorkZ">
+               <property name="text"><string>+0.0000</string></property>
+               <property name="alignment"><set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set></property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+
+          <!-- DTG -->
+          <item>
+           <widget class="QLabel" name="lblDTGTitle">
+            <property name="text"><string>DISTANCE TO GO</string></property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QGridLayout">
+            <property name="spacing"><number>3</number></property>
+            <item row="0" column="0">
+             <widget class="QLabel"><property name="text"><string>X</string></property><property name="styleSheet"><string notr="true">QLabel{color:#6a6a7a;font-size:10px;font-weight:700;background:transparent;}</string></property></widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLabel" name="lblDTGX"><property name="text"><string>+0.0000</string></property></widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel"><property name="text"><string>Y</string></property><property name="styleSheet"><string notr="true">QLabel{color:#6a6a7a;font-size:10px;font-weight:700;background:transparent;}</string></property></widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLabel" name="lblDTGY"><property name="text"><string>+0.0000</string></property></widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel"><property name="text"><string>Z</string></property><property name="styleSheet"><string notr="true">QLabel{color:#6a6a7a;font-size:10px;font-weight:700;background:transparent;}</string></property></widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QLabel" name="lblDTGZ"><property name="text"><string>+0.0000</string></property></widget>
+            </item>
+           </layout>
+          </item>
+
+          <!-- Machine coords -->
+          <item>
+           <widget class="QLabel" name="lblMachineTitle">
+            <property name="text"><string>MACHINE COORD.</string></property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QGridLayout">
+            <property name="spacing"><number>3</number></property>
+            <item row="0" column="0">
+             <widget class="QLabel"><property name="text"><string>X</string></property><property name="styleSheet"><string notr="true">QLabel{color:#6a6a7a;font-size:10px;font-weight:700;background:transparent;}</string></property></widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLabel" name="lblMachineX"><property name="text"><string>+0.0000</string></property></widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel"><property name="text"><string>Y</string></property><property name="styleSheet"><string notr="true">QLabel{color:#6a6a7a;font-size:10px;font-weight:700;background:transparent;}</string></property></widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLabel" name="lblMachineY"><property name="text"><string>+0.0000</string></property></widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel"><property name="text"><string>Z</string></property><property name="styleSheet"><string notr="true">QLabel{color:#6a6a7a;font-size:10px;font-weight:700;background:transparent;}</string></property></widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QLabel" name="lblMachineZ"><property name="text"><string>+0.0000</string></property></widget>
+            </item>
+           </layout>
+          </item>
+
+          <!-- Outil + Feed + Spindle -->
+          <item>
+           <widget class="QLabel" name="lblTool"><property name="text"><string>T-- H--</string></property></widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lblFeedrate"><property name="text"><string>F: 0 mm/min</string></property></widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lblSpindle"><property name="text"><string>S: 0 tr/min</string></property></widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lblJobName"><property name="text"><string>Aucun programme</string></property></widget>
+          </item>
+
+          <!-- Messages -->
+          <item>
+           <widget class="QTextEdit" name="txtMessages">
+            <property name="readOnly"><bool>true</bool></property>
+           </widget>
+          </item>
+
+          <!-- G-code display -->
+          <item>
+           <widget class="QTextEdit" name="txtGCodeDisplay">
+            <property name="readOnly"><bool>true</bool></property>
+            <property name="maximumHeight"><number>120</number></property>
+           </widget>
+          </item>
+
+          <!-- G-codes actifs -->
+          <item>
+           <widget class="QLabel" name="lblMdiGCodes">
+            <property name="text"><string></string></property>
+            <property name="styleSheet"><string notr="true">QLabel{font-family:'IBM Plex Mono','Courier New',monospace;font-size:10px;color:#6a6a7a;background:transparent;}</string></property>
+           </widget>
+          </item>
+
+         </layout>
+        </item>
+
+        <!-- Colonne centrale : zone messages agrandie -->
+        <item>
+         <layout class="QVBoxLayout">
+          <property name="spacing"><number>6</number></property>
+
+          <!-- Jauges feed / spindle -->
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>8</number></property>
+            <item>
+             <layout class="QVBoxLayout">
+              <property name="spacing"><number>2</number></property>
+              <item><widget class="QLabel" name="lblFeedOverride"><property name="text"><string>F: 100%</string></property></widget></item>
+              <item><widget class="QProgressBar" name="gaugeFeedOverride"><property name="value"><number>100</number></property><property name="maximum"><number>200</number></property></widget></item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QVBoxLayout">
+              <property name="spacing"><number>2</number></property>
+              <item><widget class="QLabel" name="lblSpindleOverride"><property name="text"><string>S: 100%</string></property><property name="styleSheet"><string notr="true">QLabel{color:#3a8f34;font-size:11px;font-weight:700;background:transparent;}</string></property></widget></item>
+              <item><widget class="QProgressBar" name="gaugeSpindleSpeed"><property name="value"><number>0</number></property><property name="maximum"><number>200</number></property></widget></item>
+             </layout>
+            </item>
+           </layout>
+          </item>
+
+          <!-- Spacer flex -->
+          <item>
+           <spacer>
+            <property name="orientation"><enum>Qt::Orientation::Vertical</enum></property>
+            <property name="sizeType"><enum>QSizePolicy::Policy::Expanding</enum></property>
+           </spacer>
+          </item>
+
+         </layout>
+        </item>
+
+        <!-- Colonne droite : VCP -->
+        <item>
+         <layout class="QVBoxLayout">
+          <property name="spacing"><number>6</number></property>
+
+          <!-- Broche M3/M4 + override -->
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>4</number></property>
+            <item>
+             <widget class="QPushButton" name="btnSpindleCW">
+              <property name="text"><string>◉ M3</string></property>
+              <property name="minimumHeight"><number>44</number></property>
+              <property name="styleSheet"><string notr="true">QPushButton{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #3a8f34,stop:1 #287028);border:1px solid #287028;color:white;font-weight:700;font-size:12px;border-radius:5px;}QPushButton:hover{background:#3aaf34;}</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnSpindleCCW">
+              <property name="text"><string>◉ M4</string></property>
+              <property name="minimumHeight"><number>44</number></property>
+              <property name="styleSheet"><string notr="true">QPushButton{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #3a8f34,stop:1 #287028);border:1px solid #287028;color:white;font-weight:700;font-size:12px;border-radius:5px;}QPushButton:hover{background:#3aaf34;}</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QDial" name="dialSpindleOverride">
+              <property name="minimum"><number>0</number></property>
+              <property name="maximum"><number>200</number></property>
+              <property name="value"><number>100</number></property>
+              <property name="singleStep"><number>1</number></property>
+              <property name="notchesVisible"><bool>true</bool></property>
+              <property name="minimumWidth"><number>80</number></property>
+              <property name="maximumWidth"><number>100</number></property>
+              <property name="minimumHeight"><number>80</number></property>
+              <property name="maximumHeight"><number>100</number></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnSpindleAutoMan">
+              <property name="text"><string>AUTO</string></property>
+              <property name="minimumHeight"><number>44</number></property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>4</number></property>
+            <item>
+             <widget class="QLabel" name="lblDialSpindle">
+              <property name="text"><string>100%</string></property>
+              <property name="alignment"><set>Qt::AlignHCenter|Qt::AlignVCenter</set></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="lblSpindleDialTitle">
+              <property name="text"><string>BROCHE OVR</string></property>
+              <property name="alignment"><set>Qt::AlignHCenter|Qt::AlignVCenter</set></property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>4</number></property>
+            <item>
+             <widget class="QPushButton" name="btnSpindleMinus">
+              <property name="text"><string>S-</string></property>
+              <property name="minimumHeight"><number>36</number></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnSpindlePlus">
+              <property name="text"><string>S+</string></property>
+              <property name="minimumHeight"><number>36</number></property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+
+          <!-- Boutons broche ronds -->
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>6</number></property>
+            <item>
+             <widget class="QToolButton" name="btnSpindleStart">
+              <property name="minimumWidth"><number>98</number></property>
+              <property name="minimumHeight"><number>98</number></property>
+              <property name="text"><string>▶</string></property>
+              <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonIconOnly</enum></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QToolButton" name="btnSpindleStop">
+              <property name="minimumWidth"><number>98</number></property>
+              <property name="minimumHeight"><number>98</number></property>
+              <property name="text"><string>■</string></property>
+              <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonIconOnly</enum></property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+
+          <!-- Jog axes — croix -->
+          <item>
+           <layout class="QGridLayout">
+            <property name="spacing"><number>4</number></property>
+            <item row="0" column="1">
+             <widget class="QPushButton" name="btnJogYPlus">
+              <property name="text"><string>Y+</string></property>
+              <property name="minimumHeight"><number>48</number></property>
+             </widget>
+            </item>
+            <item row="0" column="2">
+             <widget class="QPushButton" name="btnJogZPlus">
+              <property name="text"><string>Z+</string></property>
+              <property name="minimumHeight"><number>48</number></property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QPushButton" name="btnJogXMinus">
+              <property name="text"><string>X-</string></property>
+              <property name="minimumHeight"><number>48</number></property>
+             </widget>
+            </item>
+            <item row="1" column="2">
+             <widget class="QPushButton" name="btnJogXPlus">
+              <property name="text"><string>X+</string></property>
+              <property name="minimumHeight"><number>48</number></property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QPushButton" name="btnJogYMinus">
+              <property name="text"><string>Y-</string></property>
+              <property name="minimumHeight"><number>48</number></property>
+             </widget>
+            </item>
+            <item row="2" column="2">
+             <widget class="QPushButton" name="btnJogZMinus">
+              <property name="text"><string>Z-</string></property>
+              <property name="minimumHeight"><number>48</number></property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+
+          <!-- Pas jog X1 X10 X100 -->
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>4</number></property>
+            <item><widget class="QPushButton" name="btnJogX1"><property name="text"><string>X1</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+            <item><widget class="QPushButton" name="btnJogX10"><property name="text"><string>X10</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+            <item><widget class="QPushButton" name="btnJogX100"><property name="text"><string>X100</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+           </layout>
+          </item>
+
+          <!-- Modes jog -->
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>4</number></property>
+            <item><widget class="QPushButton" name="btnJogIncCont"><property name="text"><string>CONT</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+            <item><widget class="QPushButton" name="btnJogRapid"><property name="text"><string>LENT</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+            <item><widget class="QPushButton" name="btnJogMPG"><property name="text"><string>MPG</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+           </layout>
+          </item>
+
+          <!-- Feed override dial -->
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>4</number></property>
+            <item>
+             <widget class="QPushButton" name="btnFeedMinus">
+              <property name="text"><string>F-</string></property>
+              <property name="minimumHeight"><number>36</number></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QDial" name="dialFeedOverride">
+              <property name="minimum"><number>0</number></property>
+              <property name="maximum"><number>200</number></property>
+              <property name="value"><number>100</number></property>
+              <property name="singleStep"><number>1</number></property>
+              <property name="notchesVisible"><bool>true</bool></property>
+              <property name="minimumWidth"><number>80</number></property>
+              <property name="maximumWidth"><number>100</number></property>
+              <property name="minimumHeight"><number>80</number></property>
+              <property name="maximumHeight"><number>100</number></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnFeedPlus">
+              <property name="text"><string>F+</string></property>
+              <property name="minimumHeight"><number>36</number></property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>4</number></property>
+            <item>
+             <widget class="QLabel" name="lblDialFeed">
+              <property name="text"><string>100%</string></property>
+              <property name="alignment"><set>Qt::AlignHCenter|Qt::AlignVCenter</set></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="lblFeedDialTitle">
+              <property name="text"><string>AVANCE OVR</string></property>
+              <property name="alignment"><set>Qt::AlignHCenter|Qt::AlignVCenter</set></property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+
+          <item>
+           <widget class="QPushButton" name="btnFeedHold">
+            <property name="text"><string>⏸ HOLD</string></property>
+            <property name="minimumHeight"><number>40</number></property>
+           </widget>
+          </item>
+
+          <!-- Cycle -->
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>6</number></property>
+            <item>
+             <widget class="QToolButton" name="btnCycleStart">
+              <property name="minimumWidth"><number>98</number></property>
+              <property name="minimumHeight"><number>98</number></property>
+              <property name="text"><string>▶</string></property>
+              <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonIconOnly</enum></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QToolButton" name="btnCycleStop">
+              <property name="minimumWidth"><number>98</number></property>
+              <property name="minimumHeight"><number>98</number></property>
+              <property name="text"><string>■</string></property>
+              <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonIconOnly</enum></property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+
+          <item>
+           <widget class="QPushButton" name="btnCycleReset">
+            <property name="text"><string>⟳ RESET</string></property>
+            <property name="minimumHeight"><number>44</number></property>
+           </widget>
+          </item>
+
+          <!-- Spacer bas -->
+          <item>
+           <spacer>
+            <property name="orientation"><enum>Qt::Orientation::Vertical</enum></property>
+            <property name="sizeType"><enum>QSizePolicy::Policy::Expanding</enum></property>
+           </spacer>
+          </item>
+
+         </layout>
+        </item>
+
+       </layout>
+      </widget>
+
+      <!-- ══ PAGE 1 : PROGRAMME ════════════════════════════
+           Aucune DRO, aucun VCP — réservé à ProgrammePage
+           Le widget ProgrammePage est injecté en C++
+           ════════════════════════════════════════════════ -->
+      <widget class="QWidget" name="pageProgramm">
+       <!-- Layout vide — ProgrammePage injectée via C++ -->
+      </widget>
+
+      <!-- ══ PAGE 2 : EXÉCUTION ══════════════════════════════ -->
+      <widget class="QWidget" name="pageExecution">
+       <!-- Layout vide — ExecutionPage injectée via C++ -->
+      </widget>
+
+      <!-- ══ PAGE 2 : MDI ══════════════════════════════════ -->
+      <widget class="QWidget" name="pageMdi">
+       <layout class="QHBoxLayout" name="mdiLayout">
+        <property name="spacing"><number>8</number></property>
+        <property name="leftMargin"><number>8</number></property>
+        <property name="topMargin"><number>8</number></property>
+        <property name="rightMargin"><number>8</number></property>
+        <property name="bottomMargin"><number>8</number></property>
+
+        <!-- Colonne gauche : DRO + saisie MDI -->
+        <item>
+         <layout class="QVBoxLayout">
+          <property name="spacing"><number>6</number></property>
+
+          <!-- DRO X -->
+          <item>
+           <widget class="QFrame" name="frameMdiWorkX">
+            <property name="minimumHeight"><number>72</number></property>
+            <property name="maximumHeight"><number>80</number></property>
+            <layout class="QHBoxLayout">
+             <property name="spacing"><number>6</number></property>
+             <property name="leftMargin"><number>6</number></property>
+             <property name="topMargin"><number>6</number></property>
+             <property name="rightMargin"><number>6</number></property>
+             <property name="bottomMargin"><number>6</number></property>
+             <item>
+              <widget class="QPushButton" name="btnMdiWorkX">
+               <property name="maximumWidth"><number>56</number></property>
+               <property name="minimumHeight"><number>56</number></property>
+               <property name="text"><string>X</string></property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lblMdiWorkX">
+               <property name="text"><string>+0.0000</string></property>
+               <property name="alignment"><set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set></property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+
+          <!-- DRO Y -->
+          <item>
+           <widget class="QFrame" name="frameMdiWorkY">
+            <property name="minimumHeight"><number>72</number></property>
+            <property name="maximumHeight"><number>80</number></property>
+            <layout class="QHBoxLayout">
+             <property name="spacing"><number>6</number></property>
+             <property name="leftMargin"><number>6</number></property>
+             <property name="topMargin"><number>6</number></property>
+             <property name="rightMargin"><number>6</number></property>
+             <property name="bottomMargin"><number>6</number></property>
+             <item>
+              <widget class="QPushButton" name="btnMdiWorkY">
+               <property name="maximumWidth"><number>56</number></property>
+               <property name="minimumHeight"><number>56</number></property>
+               <property name="text"><string>Y</string></property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lblMdiWorkYDro">
+               <property name="text"><string>+0.0000</string></property>
+               <property name="alignment"><set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set></property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+
+          <!-- DRO Z -->
+          <item>
+           <widget class="QFrame" name="frameMdiWorkZ">
+            <property name="minimumHeight"><number>72</number></property>
+            <property name="maximumHeight"><number>80</number></property>
+            <layout class="QHBoxLayout">
+             <property name="spacing"><number>6</number></property>
+             <property name="leftMargin"><number>6</number></property>
+             <property name="topMargin"><number>6</number></property>
+             <property name="rightMargin"><number>6</number></property>
+             <property name="bottomMargin"><number>6</number></property>
+             <item>
+              <widget class="QPushButton" name="btnMdiWorkZ">
+               <property name="maximumWidth"><number>56</number></property>
+               <property name="minimumHeight"><number>56</number></property>
+               <property name="text"><string>Z</string></property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lblMdiWorkZDro">
+               <property name="text"><string>+0.0000</string></property>
+               <property name="alignment"><set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set></property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+
+          <!-- Infos outil -->
+          <item>
+           <widget class="QLabel" name="lblMdiTool2"><property name="text"><string>T-- H--</string></property></widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lblMdiFeedrate2"><property name="text"><string>F: 0 mm/min</string></property></widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="lblMdiSpindle2"><property name="text"><string>S: 0 tr/min</string></property></widget>
+          </item>
+
+          <!-- Historique commandes MDI -->
+          <item>
+           <widget class="QLabel"><property name="text"><string>Historique MDI</string></property></widget>
+          </item>
+          <item>
+           <widget class="QTextEdit" name="txtMdiHistory">
+            <property name="readOnly"><bool>true</bool></property>
+           </widget>
+          </item>
+
+          <!-- Zone saisie MDI -->
+          <item>
+           <widget class="QLabel"><property name="text"><string>Commande G-code :</string></property></widget>
+          </item>
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>6</number></property>
+            <item>
+             <widget class="QLineEdit" name="txtMdiInput">
+              <property name="placeholderText"><string>Ex: G0 X0 Y0 Z50  ou  S1000 M3</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnMdiSend">
+              <property name="text"><string>Valider</string></property>
+              <property name="minimumWidth"><number>90</number></property>
+              <property name="minimumHeight"><number>36</number></property>
+              <property name="styleSheet"><string notr="true">QPushButton{background:#3a8f34;border:1px solid #287028;color:white;font-weight:700;border-radius:5px;}QPushButton:hover{background:#3aaf34;}</string></property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+
+         </layout>
+        </item>
+
+        <!-- Colonne centrale : jauges -->
+        <item>
+         <layout class="QVBoxLayout">
+          <property name="spacing"><number>6</number></property>
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>8</number></property>
+            <item>
+             <layout class="QVBoxLayout">
+              <property name="spacing"><number>2</number></property>
+              <item><widget class="QLabel" name="lblMdiFeedOvr"><property name="text"><string>F: 100%</string></property></widget></item>
+              <item><widget class="QProgressBar" name="gaugeMdiFeedOverride"><property name="value"><number>100</number></property><property name="maximum"><number>200</number></property></widget></item>
+             </layout>
+            </item>
+            <item>
+             <layout class="QVBoxLayout">
+              <property name="spacing"><number>2</number></property>
+              <item><widget class="QLabel" name="lblMdiSpindleOvr"><property name="text"><string>S: 100%</string></property></widget></item>
+              <item><widget class="QProgressBar" name="gaugeMdiSpindle"><property name="value"><number>0</number></property><property name="maximum"><number>200</number></property></widget></item>
+             </layout>
+            </item>
+           </layout>
+          </item>
+          <item>
+           <spacer>
+            <property name="orientation"><enum>Qt::Orientation::Vertical</enum></property>
+            <property name="sizeType"><enum>QSizePolicy::Policy::Expanding</enum></property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+
+        <!-- Colonne droite : VCP identique Manuel -->
+        <item>
+         <layout class="QVBoxLayout">
+          <property name="spacing"><number>6</number></property>
+
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>4</number></property>
+            <item>
+             <widget class="QPushButton" name="btnMdiSpindleCW">
+              <property name="text"><string>&#9689; M3</string></property>
+              <property name="minimumHeight"><number>44</number></property>
+              <property name="styleSheet"><string notr="true">QPushButton{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #3a8f34,stop:1 #287028);border:1px solid #287028;color:white;font-weight:700;font-size:12px;border-radius:5px;}QPushButton:hover{background:#3aaf34;}</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnMdiSpindleCCW">
+              <property name="text"><string>&#9689; M4</string></property>
+              <property name="minimumHeight"><number>44</number></property>
+              <property name="styleSheet"><string notr="true">QPushButton{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #3a8f34,stop:1 #287028);border:1px solid #287028;color:white;font-weight:700;font-size:12px;border-radius:5px;}QPushButton:hover{background:#3aaf34;}</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QDial" name="dialMdiSpindleOverride">
+              <property name="minimum"><number>0</number></property>
+              <property name="maximum"><number>200</number></property>
+              <property name="value"><number>100</number></property>
+              <property name="notchesVisible"><bool>true</bool></property>
+              <property name="minimumWidth"><number>80</number></property>
+              <property name="maximumWidth"><number>100</number></property>
+              <property name="minimumHeight"><number>80</number></property>
+              <property name="maximumHeight"><number>100</number></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="btnMdiSpindleAutoMan">
+              <property name="text"><string>AUTO</string></property>
+              <property name="minimumHeight"><number>44</number></property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>4</number></property>
+            <item><widget class="QLabel" name="lblMdiDialSpindle"><property name="text"><string>100%</string></property><property name="alignment"><set>Qt::AlignHCenter|Qt::AlignVCenter</set></property></widget></item>
+            <item><widget class="QLabel" name="lblMdiBrocheOvr"><property name="text"><string>BROCHE OVR</string></property><property name="alignment"><set>Qt::AlignHCenter|Qt::AlignVCenter</set></property></widget></item>
+           </layout>
+          </item>
+
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>4</number></property>
+            <item><widget class="QPushButton" name="btnMdiSpindleMinus"><property name="text"><string>S-</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+            <item><widget class="QPushButton" name="btnMdiSpindlePlus"><property name="text"><string>S+</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+           </layout>
+          </item>
+
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>6</number></property>
+            <item>
+             <widget class="QToolButton" name="btnMdiSpindleStart">
+              <property name="minimumWidth"><number>98</number></property>
+              <property name="minimumHeight"><number>98</number></property>
+              <property name="text"><string>&#9654;</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QToolButton" name="btnMdiSpindleStop">
+              <property name="minimumWidth"><number>98</number></property>
+              <property name="minimumHeight"><number>98</number></property>
+              <property name="text"><string>&#9632;</string></property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+
+          <!-- Jog -->
+          <item>
+           <layout class="QGridLayout">
+            <property name="spacing"><number>4</number></property>
+            <item row="0" column="1"><widget class="QPushButton" name="btnMdiJogYPlus"><property name="text"><string>Y+</string></property><property name="minimumHeight"><number>48</number></property></widget></item>
+            <item row="0" column="2"><widget class="QPushButton" name="btnMdiJogZPlus"><property name="text"><string>Z+</string></property><property name="minimumHeight"><number>48</number></property></widget></item>
+            <item row="1" column="0"><widget class="QPushButton" name="btnMdiJogXMinus"><property name="text"><string>X-</string></property><property name="minimumHeight"><number>48</number></property></widget></item>
+            <item row="1" column="2"><widget class="QPushButton" name="btnMdiJogXPlus"><property name="text"><string>X+</string></property><property name="minimumHeight"><number>48</number></property></widget></item>
+            <item row="2" column="1"><widget class="QPushButton" name="btnMdiJogYMinus"><property name="text"><string>Y-</string></property><property name="minimumHeight"><number>48</number></property></widget></item>
+            <item row="2" column="2"><widget class="QPushButton" name="btnMdiJogZMinus"><property name="text"><string>Z-</string></property><property name="minimumHeight"><number>48</number></property></widget></item>
+           </layout>
+          </item>
+
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>4</number></property>
+            <item><widget class="QPushButton" name="btnMdiJogX1"><property name="text"><string>X1</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+            <item><widget class="QPushButton" name="btnMdiJogX10"><property name="text"><string>X10</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+            <item><widget class="QPushButton" name="btnMdiJogX100"><property name="text"><string>X100</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+           </layout>
+          </item>
+
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>4</number></property>
+            <item><widget class="QPushButton" name="btnMdiJogIncCont"><property name="text"><string>CONT</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+            <item><widget class="QPushButton" name="btnMdiJogRapid"><property name="text"><string>LENT</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+            <item><widget class="QPushButton" name="btnMdiJogMPG"><property name="text"><string>MPG</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+           </layout>
+          </item>
+
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>4</number></property>
+            <item><widget class="QPushButton" name="btnMdiFeedMinus"><property name="text"><string>F-</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+            <item>
+             <widget class="QDial" name="dialMdiFeedOverride">
+              <property name="minimum"><number>0</number></property>
+              <property name="maximum"><number>200</number></property>
+              <property name="value"><number>100</number></property>
+              <property name="notchesVisible"><bool>true</bool></property>
+              <property name="minimumWidth"><number>80</number></property>
+              <property name="maximumWidth"><number>100</number></property>
+              <property name="minimumHeight"><number>80</number></property>
+              <property name="maximumHeight"><number>100</number></property>
+             </widget>
+            </item>
+            <item><widget class="QPushButton" name="btnMdiFeedPlus"><property name="text"><string>F+</string></property><property name="minimumHeight"><number>36</number></property></widget></item>
+           </layout>
+          </item>
+
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>4</number></property>
+            <item><widget class="QLabel" name="lblMdiDialFeed"><property name="text"><string>100%</string></property><property name="alignment"><set>Qt::AlignHCenter|Qt::AlignVCenter</set></property></widget></item>
+            <item><widget class="QLabel" name="lblMdiFeedOvrTitle"><property name="text"><string>AVANCE OVR</string></property><property name="alignment"><set>Qt::AlignHCenter|Qt::AlignVCenter</set></property></widget></item>
+           </layout>
+          </item>
+
+          <item>
+           <widget class="QPushButton" name="btnMdiFeedHold">
+            <property name="text"><string>&#9208; HOLD</string></property>
+            <property name="minimumHeight"><number>40</number></property>
+           </widget>
+          </item>
+
+          <item>
+           <layout class="QHBoxLayout">
+            <property name="spacing"><number>6</number></property>
+            <item>
+             <widget class="QToolButton" name="btnMdiCycleStart">
+              <property name="minimumWidth"><number>98</number></property>
+              <property name="minimumHeight"><number>98</number></property>
+              <property name="text"><string>&#9654;</string></property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QToolButton" name="btnMdiCycleStop">
+              <property name="minimumWidth"><number>98</number></property>
+              <property name="minimumHeight"><number>98</number></property>
+              <property name="text"><string>&#9632;</string></property>
+             </widget>
+            </item>
+           </layout>
+          </item>
+
+          <item>
+           <widget class="QPushButton" name="btnMdiCycleReset">
+            <property name="text"><string>&#10167; RESET</string></property>
+            <property name="minimumHeight"><number>44</number></property>
+           </widget>
+          </item>
+
+          <item>
+           <spacer>
+            <property name="orientation"><enum>Qt::Orientation::Vertical</enum></property>
+            <property name="sizeType"><enum>QSizePolicy::Policy::Expanding</enum></property>
+           </spacer>
+          </item>
+
+         </layout>
+        </item>
+
+       </layout>
+      </widget>
+
+      <!-- ══ PAGE 3 : SIMULATION ════════════════════════════
+           Aucune DRO, aucun VCP — canvas uniquement
+           ════════════════════════════════════════════════ -->
+      <widget class="QWidget" name="pageSimulation">
+       <layout class="QVBoxLayout" name="simLayout">
+        <property name="spacing"><number>0</number></property>
+        <property name="leftMargin"><number>0</number></property>
+        <property name="topMargin"><number>0</number></property>
+        <property name="rightMargin"><number>0</number></property>
+        <property name="bottomMargin"><number>0</number></property>
+        <item>
+         <widget class="QLabel">
+          <property name="text"><string>Zone aperçu simulation — à implémenter</string></property>
+          <property name="alignment"><set>Qt::AlignCenter</set></property>
+          <property name="styleSheet"><string notr="true">QLabel{color:#6a6a7a;font-size:16px;background:#e8e8e8;}</string></property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+
+      <!-- ══ PAGE 4 : FICHIERS ══════════════════════════════
+           FileBrowserPage injectée en C++
+           ════════════════════════════════════════════════ -->
+
+
+     </widget>
+    </item>
+
+    <!-- BARRE SOFTKEYS PAR PAGE -->
+    <item>
+     <widget class="QStackedWidget" name="softkeyStack">
+      <property name="minimumHeight"><number>90</number></property>
+      <property name="maximumHeight"><number>90</number></property>
+      <property name="currentIndex"><number>0</number></property>
+      <widget class="QWidget" name="skPage_manuel">
+       <layout class="QHBoxLayout" name="lay_skPage_manuel">
+        <property name="spacing"><number>2</number></property>
+        <property name="leftMargin"><number>4</number></property>
+        <property name="topMargin"><number>0</number></property>
+        <property name="rightMargin"><number>4</number></property>
+        <property name="bottomMargin"><number>0</number></property>
+       <item>
+        <widget class="QToolButton" name="sk_prev_0">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>&lt;</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_M_0">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>M</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_S_0">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>S</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_F_0">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>F</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_orig_0">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>Gestion
+Origines</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_tbl_0">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>Tableau
+Outil</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e1_0">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e2_0">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e3_0">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_quit_0">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>Quitter
+EazyNC &gt;</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       </layout>
+      </widget>
+            <widget class="QWidget" name="skPage_programme">
+       <layout class="QHBoxLayout" name="lay_skPage_programme">
+        <property name="spacing"><number>2</number></property>
+        <property name="leftMargin"><number>4</number></property>
+        <property name="topMargin"><number>0</number></property>
+        <property name="rightMargin"><number>4</number></property>
+        <property name="bottomMargin"><number>0</number></property>
+       <item>
+        <widget class="QToolButton" name="sk_prev_1a">
+         <property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Expanding"/></property>
+         <property name="minimumWidth"><number>80</number></property>
+         <property name="maximumWidth"><number>100</number></property>
+         <property name="text"><string>&lt;</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_blkform_1">
+         <property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"/></property>
+         <property name="minimumWidth"><number>116</number></property>
+         <property name="maximumWidth"><number>116</number></property>
+         <property name="minimumHeight"><number>86</number></property>
+         <property name="maximumHeight"><number>86</number></property>
+         <property name="text"><string>BlkForm</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_poche_1">
+         <property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"/></property>
+         <property name="minimumWidth"><number>116</number></property>
+         <property name="maximumWidth"><number>116</number></property>
+         <property name="minimumHeight"><number>86</number></property>
+         <property name="maximumHeight"><number>86</number></property>
+         <property name="text"><string>Tous
+usinages</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_select_1">
+         <property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Expanding"/></property>
+         <property name="minimumWidth"><number>80</number></property>
+         <property name="maximumWidth"><number>100</number></property>
+         <property name="text"><string>Sélect.
+bloc</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_trou_1">
+         <property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"/></property>
+         <property name="minimumWidth"><number>116</number></property>
+         <property name="maximumWidth"><number>116</number></property>
+         <property name="minimumHeight"><number>86</number></property>
+         <property name="maximumHeight"><number>86</number></property>
+         <property name="text"><string>Poche
+circ.</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_contour_1">
+         <property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Fixed"/></property>
+         <property name="minimumWidth"><number>116</number></property>
+         <property name="maximumWidth"><number>116</number></property>
+         <property name="minimumHeight"><number>86</number></property>
+         <property name="maximumHeight"><number>86</number></property>
+         <property name="text"><string>Contour</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_charger_1">
+         <property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Expanding"/></property>
+         <property name="minimumWidth"><number>80</number></property>
+         <property name="maximumWidth"><number>100</number></property>
+         <property name="text"><string>Charger
+.enc</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_enregistrer_1">
+         <property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Expanding"/></property>
+         <property name="minimumWidth"><number>80</number></property>
+         <property name="maximumWidth"><number>100</number></property>
+         <property name="text"><string>Enreg.
+.enc</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_next_1a">
+         <property name="sizePolicy"><sizepolicy hsizetype="Fixed" vsizetype="Expanding"/></property>
+         <property name="minimumWidth"><number>80</number></property>
+         <property name="maximumWidth"><number>100</number></property>
+         <property name="text"><string>&gt;</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="skPage_prog_edit">
+       <layout class="QHBoxLayout" name="lay_skPage_prog_edit">
+        <property name="spacing"><number>2</number></property>
+        <property name="leftMargin"><number>4</number></property>
+        <property name="topMargin"><number>0</number></property>
+        <property name="rightMargin"><number>4</number></property>
+        <property name="bottomMargin"><number>0</number></property>
+       <item>
+        <widget class="QToolButton" name="sk_prev_1b">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>&lt;</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_copier_1">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>Copier
+bloc</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_coller_1">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>Coller
+bloc</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_couper_1">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>Couper
+bloc</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_suppr_1">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>Supprimer
+bloc</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_ins_1">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>Insérer
+bloc</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e1_1b">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_next_1b">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>Enr enc</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="skPage_prog_sel">
+       <layout class="QHBoxLayout" name="lay_skPage_prog_sel">
+        <property name="spacing"><number>2</number></property>
+        <property name="leftMargin"><number>4</number></property>
+        <property name="topMargin"><number>0</number></property>
+        <property name="rightMargin"><number>4</number></property>
+        <property name="bottomMargin"><number>0</number></property>
+       <item>
+        <widget class="QToolButton" name="sk_sel_up">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>Quitter
+sélection</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_sel_down">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>Marquer
+bloc suiv.</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_sel_copier">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>Copier</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_sel_couper">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>Découper</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_sel_ins">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e1_1c">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_annuler_sel">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       </layout>
+      </widget>
+      <!-- skPage_execution — softkeys page Exécution -->
+      <widget class="QWidget" name="skPage_execution">
+       <layout class="QHBoxLayout" name="lay_skPage_execution">
+        <property name="spacing"><number>2</number></property>
+        <property name="leftMargin"><number>4</number></property>
+        <property name="topMargin"><number>0</number></property>
+        <property name="rightMargin"><number>4</number></property>
+        <property name="bottomMargin"><number>0</number></property>
+        <item>
+         <widget class="QToolButton" name="sk_exec_e1">
+          <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+          <property name="text"><string></string></property>
+          <property name="enabled"><bool>false</bool></property>
+          <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+          <property name="autoRaise"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="sk_exec_e2">
+          <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+          <property name="text"><string></string></property>
+          <property name="enabled"><bool>false</bool></property>
+          <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+          <property name="autoRaise"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="sk_exec_e3">
+          <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+          <property name="text"><string></string></property>
+          <property name="enabled"><bool>false</bool></property>
+          <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+          <property name="autoRaise"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="sk_exec_e4">
+          <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+          <property name="text"><string></string></property>
+          <property name="enabled"><bool>false</bool></property>
+          <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+          <property name="autoRaise"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="sk_exec_e5">
+          <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+          <property name="text"><string></string></property>
+          <property name="enabled"><bool>false</bool></property>
+          <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+          <property name="autoRaise"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="sk_exec_e6">
+          <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+          <property name="text"><string></string></property>
+          <property name="enabled"><bool>false</bool></property>
+          <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+          <property name="autoRaise"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="sk_exec_tableau">
+          <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+          <property name="text"><string>Tableau
+outil</string></property>
+          <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+          <property name="autoRaise"><bool>true</bool></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="sk_exec_goto">
+          <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+          <property name="text"><string>GOTO</string></property>
+          <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+          <property name="autoRaise"><bool>true</bool></property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+<widget class="QWidget" name="skPage_mdi">
+       <layout class="QHBoxLayout" name="lay_skPage_mdi">
+        <property name="spacing"><number>2</number></property>
+        <property name="leftMargin"><number>4</number></property>
+        <property name="topMargin"><number>0</number></property>
+        <property name="rightMargin"><number>4</number></property>
+        <property name="bottomMargin"><number>0</number></property>
+       <item>
+        <widget class="QToolButton" name="sk_prev_2">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>&lt;</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e1_2">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e2_2">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e3_2">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e4_2">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e5_2">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e6_2">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e7_2">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e8_2">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_next_2">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>&gt;</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="skPage_simulation">
+       <layout class="QHBoxLayout" name="lay_skPage_simulation">
+        <property name="spacing"><number>2</number></property>
+        <property name="leftMargin"><number>4</number></property>
+        <property name="topMargin"><number>0</number></property>
+        <property name="rightMargin"><number>4</number></property>
+        <property name="bottomMargin"><number>0</number></property>
+       <item>
+        <widget class="QToolButton" name="sk_prev_3">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>&lt;</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e1_3">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e2_3">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e3_3">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e4_3">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e5_3">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e6_3">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e7_3">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_e8_3">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string></string></property>
+         <property name="enabled"><bool>false</bool></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="sk_next_3">
+         <property name="sizePolicy"><sizepolicy hsizetype="Expanding" vsizetype="Expanding"/></property>
+         <property name="text"><string>&gt;</string></property>
+         <property name="toolButtonStyle"><enum>Qt::ToolButtonStyle::ToolButtonTextOnly</enum></property>
+         <property name="autoRaise"><bool>true</bool></property>
+        </widget>
+       </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+
+   </layout>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
+
