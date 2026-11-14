@@ -255,17 +255,45 @@ QVector<GCodeLine> ContourGenerator::contourBody(int blkId) const
         return out;
     }
 
-    // ── Sens d'usinage ───────────────────────────────────────
-    //  REGLE FONDAMENTALE :
-    //   - Le contour est dessine dans le sens AVALANT.
-    //   - Mode avalant   (modeFraisage==0) : on usine le path
-    //     tel qu'il est dessine.
-    //   - Mode opposition(modeFraisage==1) : on inverse le sens
-    //     de parcours du path.
-    //  C'est le SEUL endroit ou le sens est decide. offsetPolyline
-    //  preserve le sens, et emitContour / trajFin / la finition
-    //  heritent tous de ce path. AUCUNE autre inversion ailleurs.
-    if (d.modeFraisage == 1) {
+    // ── Position de l'outil (R0 / RL / RR) ────────────────────
+    //  0 = Exterieur : outil a l'exterieur du contour ferme
+    //  1 = R0  : centre outil SUR la ligne (gorge, rainure, gravure)
+    //  2 = RL  : outil a gauche du sens DESSINE
+    //  3 = RR  : outil a droite du sens DESSINE
+    //  Calcule sur le contour tel que dessine (AVANT toute inversion).
+    //  sideSign > 0 : outil dehors (matiere a usiner = piece a l'interieur)
+    //  sideSign < 0 : outil dedans (matiere = a l'exterieur, cas poche)
+    const int posOutil = qBound(0, d.positionOutil, 3);
+    double sideSign = 1.0;
+    auto aireSignee = [](const QVector<QPointF> &p) {
+        double a = 0.0;
+        for (int i = 0; i + 1 < p.size(); ++i)
+            a += p[i].x()*p[i+1].y() - p[i+1].x()*p[i].y();
+        return a;
+    };
+    if (posOutil == 1) sideSign = 0.0;
+    else if (posOutil >= 2) {
+        const bool ccw  = aireSignee(path) > 0;
+        const bool left = (posOutil == 2);
+        sideSign = (left == ccw) ? -1.0 : 1.0;
+        if (!closed) {
+            out << comment("RL/RR : contour ouvert non gere, outil sur la ligne", blkId);
+            sideSign = 0.0;
+        }
+    }
+
+    // ── Sens d'usinage (avalant / opposition) ─────────────────
+    //  REGLE : broche M3 -> AVALANT = matiere A DROITE du sens d'avance
+    //  (equivalent G41). En M4 c'est l'inverse.
+    //  Contour ferme : on impose le sens d'apres le cote de la matiere,
+    //  QUEL QUE SOIT le sens dans lequel le contour a ete dessine :
+    //   - matiere a l'interieur (outil dehors) : avalant = sens horaire (CW)
+    //   - matiere a l'exterieur (outil dedans) : avalant = sens trigo (CCW)
+    //  Contour ouvert ou R0 : pas de cote matiere -> sens dessine,
+    //  inverse en opposition (comportement historique).
+    //  C'est le SEUL endroit ou le sens du path est decide.
+    const bool avalantM3 = ((d.modeFraisage == 0) == d.brocheCW);
+    auto inverserPath = [&]() {
         if (closed) {
             QPointF firstPt = path.first();
             bool hadClose = (path.size() >= 2 &&
@@ -280,35 +308,15 @@ QVector<GCodeLine> ContourGenerator::contourBody(int blkId) const
         } else {
             std::reverse(path.begin(), path.end());
         }
+    };
+    if (closed && sideSign != 0.0) {
+        const bool veutCW = (sideSign > 0) ? avalantM3 : !avalantM3;
+        const bool estCW  = aireSignee(path) < 0;
+        if (veutCW != estCW) inverserPath();
+    } else if (d.modeFraisage == 1) {
+        inverserPath();
     }
 
-    // Trajectoire ébauche (avec surepLat).
-    // Plus de G41/G42 : on offsette TOUJOURS vers l'EXTERIEUR du contour
-    // tel que dessine. Le sens du contour (CCW/CW) est gere dans
-    // offsetPolyline qui force CCW avant offset Clipper.
-    // Cas standard : contour = piece a usiner par l'exterieur (fraise dehors).
-    // ── Position de l'outil (R0 / RL / RR) ────────────────────
-    //  0 = Exterieur : comportement historique (offset vers l'exterieur)
-    //  1 = R0  : centre outil SUR la ligne (gorge, rainure, gravure)
-    //  2 = RL  : outil a gauche du sens de parcours
-    //  3 = RR  : outil a droite du sens de parcours
-    //  RL/RR : gauche/droite traduits en interieur/exterieur selon le
-    //  sens du contour ferme (CCW : gauche = interieur).
-    const int posOutil = qBound(0, d.positionOutil, 3);
-    double sideSign = 1.0;
-    if (posOutil == 1) sideSign = 0.0;
-    else if (posOutil >= 2) {
-        double area = 0.0;
-        for (int i = 0; i + 1 < path.size(); ++i)
-            area += path[i].x()*path[i+1].y() - path[i+1].x()*path[i].y();
-        const bool ccw  = area > 0;
-        const bool left = (posOutil == 2);
-        sideSign = (left == ccw) ? -1.0 : 1.0;
-        if (!closed) {
-            out << comment("RL/RR : contour ouvert non gere, outil sur la ligne", blkId);
-            sideSign = 0.0;
-        }
-    }
     double offsetEb = sideSign * (rOutil + d.DR + d.surepLat);
 
     // Trajectoire finition (sans surepLat) - utilisée seulement si doFinition
@@ -1113,7 +1121,7 @@ QVector<GCodeLine> ContourGenerator::contourBody(int blkId) const
                 // Sens des passes concentriques (poche).
                 //  - avalant     : path CW  -> cw = true
                 //  - opposition  : path CCW -> cw = false
-                const bool cw = (d.modeFraisage == 0);
+                const bool cw = ((d.modeFraisage == 0) == d.brocheCW);   // M4 : sens inverse
 
                 // ── Direction sortante locale au contour ──────────────
                 //  Pour un point d'une polyligne offset (pass) avec tangentes
