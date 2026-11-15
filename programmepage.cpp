@@ -14,6 +14,7 @@
 #include "contourgenerator.h"
 #include "pochecontourgenerator.h"     // architecture Strategy : cycle contournage
 #include "percagegenerator.h"     // architecture Strategy : cycle percage
+#include "helpanimwidget.h"         // dessins d'aide animés
 #include "fraisagetrougenerator.h" // architecture Strategy : cycle fraisage de trou
 
 #include <QHBoxLayout>
@@ -23,6 +24,7 @@
 #include <QComboBox>
 #include <QLabel>
 #include <QFrame>
+#include <QScrollArea>
 #include <QFile>
 #include <QTextStream>
 #include <QFileInfo>
@@ -1875,7 +1877,17 @@ void ProgrammePage::setupUi()
     connect(m_blkForm, &BlkFormWidget::dataChanged,
             this, &ProgrammePage::saveCurrentBlock);
     m_rightStack->addWidget(m_blkForm);  // index 0
-    m_rightStack->addWidget(m_editor);   // index 1
+    // Éditeur dans une zone qui défile : avec les grands caractères,
+    // les pages les plus longues (PM poche, PM fraisage trou) ne doivent
+    // pas agrandir la fenêtre au-delà de l'écran (softkeys coupées).
+    {
+        auto *defil = new QScrollArea;
+        defil->setWidget(m_editor);
+        defil->setWidgetResizable(true);
+        defil->setFrameShape(QFrame::NoFrame);
+        defil->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        m_rightStack->addWidget(defil);  // index 1
+    }
     m_rightStack->setCurrentIndex(0);
     // Signal UnitEditor → ouvrir l'éditeur de contour
     connect(m_editor, &UnitEditor::openContourEditor,
@@ -2178,6 +2190,11 @@ void ProgrammePage::setupUi()
                          "Sélectionner un paramètre<br>pour voir l'aide</span>");
     helpLay->addWidget(m_helpLabel, 1);  // stretch=1 pour prendre la place
 
+    // Dessin d'aide animé (remplace l'image fixe quand la clé a une animation)
+    m_helpAnim = new HelpAnimWidget;
+    m_helpAnim->setVisible(false);
+    helpLay->addWidget(m_helpAnim, 1);
+
     // Label texte sous l'image
     m_helpTextLabel = new QLabel;
     m_helpTextLabel->setAlignment(Qt::AlignCenter);
@@ -2234,6 +2251,7 @@ void ProgrammePage::showHelp(const QString &svgKey)
 
     static const QHash<QString,QString> tips = {
         {"longueur_largeur", "Longueur x Largeur de la poche (mm)"},
+        {"diametre",         "Diametre de la poche (mm)"},
         {"profondeur",       "Profondeur totale depuis Z0 (mm)"},
         {"prof_passe",       "Profondeur par passe (mm)"},
         {"surep_lat",        "Surcote laterale pour la finition (mm)"},
@@ -2252,6 +2270,12 @@ void ProgrammePage::showHelp(const QString &svgKey)
         {"sk_grille",  "Grille : X/Y de depart, pas X / pas Y, nb de colonnes et de lignes"},
         {"sk_cercle",  "Cercle : centre, rayon, nb de positions, angles de depart et de fin"},
         {"sk_tableau", "Tableau : liste de positions saisies une par une"},
+        // Dessins animés
+        {"plongee_0",  "Helicoidale : descente en helice, la plus douce pour l'outil"},
+        {"plongee_1",  "Rampe : descente en aller-retour selon l'angle de rampe de l'outil"},
+        {"plongee_2",  "Directe : descente verticale, avance de plongee reduite"},
+        {"fraisage_0", "En avalant : meilleur etat de surface, a privilegier"},
+        {"fraisage_1", "En opposition : utile sur croute dure ou machine avec jeu"},
     };
     static const QHash<QString,QString> pngPaths = {
         {"mode_finition",  ":/unit/finition.png"},
@@ -2259,8 +2283,18 @@ void ProgrammePage::showHelp(const QString &svgKey)
         {"mode_eb_fin",    ":/unit/ebauche finition.png"},
     };
 
+    // Cacher l'animation si elle était affichée
+    auto hideAnim = [this]() {
+        if (m_helpAnim && m_helpAnim->isVisible()) {
+            m_helpAnim->stop();
+            m_helpAnim->setVisible(false);
+            m_helpLabel->setVisible(true);
+        }
+    };
+
     // Helper : afficher image et/ou texte
-    auto display = [this](const QPixmap &px, const QString &txt) {
+    auto display = [this, hideAnim](const QPixmap &px, const QString &txt) {
+        hideAnim();
         if (!px.isNull()) {
             int fw = m_helpLabel->width()  > 20 ? m_helpLabel->width()  : (m_helpFrame->width()  > 20 ? m_helpFrame->width()  - 16 : 380);
             int fh = m_helpLabel->height() > 20 ? m_helpLabel->height() : (m_helpFrame->height() > 20 ? m_helpFrame->height() - 60 : 280);
@@ -2286,6 +2320,36 @@ void ProgrammePage::showHelp(const QString &svgKey)
                                 m_blocks[m_currentIndex].type == BlockType::BlkForm);
         if (isBlkForm) return;
         display(QPixmap(), QString());
+        return;
+    }
+
+    // Dessin animé (pas sur la page BLK FORM qui affiche le schéma de la pièce)
+    // Variante selon le cycle : poche circulaire -> dessins ronds
+    QString animKey = svgKey;
+    if (m_currentIndex >= 0 && m_currentIndex < m_blocks.size()
+        && m_blocks[m_currentIndex].type == BlockType::PocheCirc) {
+        if (animKey == "longueur_largeur") animKey = "diametre";
+        // variante ronde si elle existe (surep_lat_circ, prof_passe_circ...)
+        if (HelpAnimWidget::hasScene(animKey + "_circ")) animKey += "_circ";
+    }
+    // Poche contour : les champs du contournage montrent les dessins de poche
+    if (m_currentIndex >= 0 && m_currentIndex < m_blocks.size()
+        && m_blocks[m_currentIndex].type == BlockType::PocheContour) {
+        static const QHash<QString,QString> versPoche = {
+            {"cnt_profondeur", "profondeur"}, {"cnt_passe", "prof_passe"},
+            {"cnt_surep_lat", "surep_lat"},   {"cnt_passe_fin", "surep_lat"} };
+        animKey = versPoche.value(animKey, animKey);
+    }
+    if (m_helpAnim && HelpAnimWidget::hasScene(animKey)
+        && !(m_brutPreview && m_brutPreview->isVisible())) {
+        m_helpLabel->setVisible(false);
+        m_helpAnim->setVisible(true);
+        m_helpAnim->setScene(animKey);
+        if (m_helpTextLabel) {
+            const QString txt = tips.value(svgKey);
+            m_helpTextLabel->setVisible(!txt.isEmpty());
+            m_helpTextLabel->setText(txt);
+        }
         return;
     }
 
@@ -2669,6 +2733,7 @@ void ProgrammePage::showBlockInEditor(int index)
 
     // Par défaut : cacher le schéma 3D (réaffiché seulement pour BlkForm)
     if (m_brutPreview) m_brutPreview->setVisible(false);
+    if (m_helpAnim)    { m_helpAnim->stop(); m_helpAnim->setVisible(false); }
     if (m_helpLabel)   m_helpLabel->setVisible(true);
 
     // Transmettre les valeurs héritées du BLK FORM à l\'UnitEditor

@@ -269,6 +269,7 @@ private:
     QLabel         *m_helpLabel  = nullptr;
     QLabel         *m_helpTextLabel = nullptr;
     class BrutPreviewWidget *m_brutPreview = nullptr;
+    class HelpAnimWidget    *m_helpAnim    = nullptr;   // dessins d'aide animés
 
     QVector<BlockData> m_blocks;
     QLabel             *m_saveOverlay = nullptr;

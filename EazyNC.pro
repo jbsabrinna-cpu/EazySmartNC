@@ -9,6 +9,7 @@ DEFINES += NOMINMAX WIN32_LEAN_AND_MEAN
 # SOURCES
 #────────────────────────────────────────────
 SOURCES += \
+    helpanimwidget.cpp \
     clipper2/clipper.engine.cpp \
     clipper2/clipper.offset.cpp \
     clipper2/clipper.rectclip.cpp \
@@ -51,6 +52,7 @@ SOURCES += \
 # HEADERS
 #────────────────────────────────────────────
 HEADERS += \
+    helpanimwidget.h \
     occoffset.h \
     cadimporter.h \
     configdialog.h \
@@ -149,7 +151,11 @@ contains(DEFINES, WITH_CENTROID_API) {
 # RESOURCES
 #────────────────────────────────────────────
 RESOURCES += \
-    icons.qrc
+    icons.qrc \
+    help_anim.qrc
+
+# Ressources volumineuses (animations GIF) : compilées à part par rcc
+CONFIG += resources_big
 
 #────────────────────────────────────────────
 # FICHIER DE TRADUCTION (.msg style Centroid CNC12)

@@ -28,6 +28,12 @@ Pick a contour with one click (automatic chaining, cutting direction, TNC-style 
 
 ![DXF converter](docs/images/convertisseur-dxf.gif)
 
+### Animated 3D help
+
+Each input field shows a short 3D animation in the HELP panel: plunge modes, depth per pass, approach and clearance planes, stepover, side and floor stock, climb / conventional, entry radius, hole milling… Round pockets get round animations. The animations are rendered by a small Python tool included in `tools/anim3d`.
+
+![Animated help: helical plunge](docs/images/aide-plongee-helice.gif)
+
 ### 3D simulation
 
 Real-time stock removal, one color per tool, line-by-line G-code playback.
@@ -121,6 +127,7 @@ docs/images/               screenshots for this README
 
 - [ ] Pre-drilling cycle (pilot holes for straight plunge)
 - [x] Climb / conventional in the profile cycle
+- [x] Animated 3D help for the input fields
 - [ ] STEP 3D view: origin from faces and edges, spline recognition
 - [ ] Inch mode (G20)
 - [ ] English interface

@@ -26,6 +26,12 @@ Sélection d'un contour d'un clic (enchaînement automatique, sens d'usinage, é
 
 ![Convertisseur DXF](docs/images/convertisseur-dxf.gif)
 
+### Aide animée en 3D
+
+Chaque champ de saisie affiche une courte animation 3D dans le cadre AIDE : modes de plongée, profondeur de passe, Z approche et saut de bride, recouvrement, surépaisseurs, avalant / opposition, rayon d'entrée, fraisage de trou… Les poches rondes ont des animations rondes. Les animations sont fabriquées par un petit outil Python fourni dans `tools/anim3d`.
+
+![Aide animée : plongée hélicoïdale](docs/images/aide-plongee-helice.gif)
+
 ### Simulation 3D
 
 Enlèvement de matière en temps réel, une couleur par outil, lecture ligne à ligne du G-code.
@@ -119,6 +125,7 @@ docs/images/               captures de ce README
 
 - [ ] Cycle de pré-perçage (avant-trous pour la plongée directe)
 - [x] Avalant / opposition dans le cycle de contournage
+- [x] Aide animée en 3D pour les champs de saisie
 - [ ] Vue 3D STEP : origine par faces et arêtes, reconnaissance des splines
 - [ ] Mode pouce (G20)
 - [ ] Réorganisation du code en `src/`, `ui/`, `resources/`

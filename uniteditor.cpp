@@ -106,7 +106,7 @@ UnitEditor::UnitEditor(QWidget *parent)
         ui->editSomT->setMaximumWidth(70);  // "carré" numéro
         m_lblSomToolName = new QLabel;
         m_lblSomToolName->setStyleSheet(
-            "background:#FFFFFF;color:#204060;font-weight:bold;font-size:12px;"
+            "background:#FFFFFF;color:#204060;font-weight:bold;font-size:15px;"
             "border:1px solid #909090;border-radius:3px;padding:2px 6px;");
         // Pas de stretch=1 (débordait au-delà de lblSomTMode) — largeur
         // alignée sur les autres champs (S, avances) de la même colonne.
@@ -137,7 +137,7 @@ UnitEditor::UnitEditor(QWidget *parent)
             ui->editToolT->setMaximumWidth(70);  // "carré" numéro
             m_lblToolName = new QLabel;
             m_lblToolName->setStyleSheet(
-                "background:#FFFFFF;color:#204060;font-weight:bold;font-size:12px;"
+                "background:#FFFFFF;color:#204060;font-weight:bold;font-size:15px;"
                 "border:1px solid #909090;border-radius:3px;padding:2px 6px;");
             hl->addWidget(ui->editToolT);
             hl->addWidget(m_lblToolName, 1);  // "rectangle" nom, extensible
@@ -149,6 +149,91 @@ UnitEditor::UnitEditor(QWidget *parent)
 
             delete taken.labelItem;    // ne détruit QUE le QLayoutItem, pas le widget
             delete taken.fieldItem;
+        }
+
+        // ── Réorganisation de l'onglet Outil en sections ─────────
+        //  (outil, broche, avances, corrections, fonctions M) avec des
+        //  libellés complets : les anciens libellés-icônes 24 px
+        //  tronquaient le texte ("(m", "I. (n"...).
+        {
+            QFormLayout *f = ui->formTool;
+            auto prendre = [f](QWidget *champ) -> QPair<QWidget*, QWidget*> {
+                int r = -1; QFormLayout::ItemRole ro;
+                f->getWidgetPosition(champ, &r, &ro);
+                if (r < 0) return {nullptr, champ};
+                QFormLayout::TakeRowResult t = f->takeRow(r);
+                QWidget *l = t.labelItem ? t.labelItem->widget() : nullptr;
+                QWidget *c = t.fieldItem ? t.fieldItem->widget() : champ;
+                delete t.labelItem; delete t.fieldItem;
+                return {l, c};
+            };
+            auto section = [](const QString &t) {
+                auto *l = new QLabel(t);
+                l->setStyleSheet("color:#3a8f34;font-size:15px;font-weight:700;"
+                                 "letter-spacing:2px;padding-top:6px;");
+                return l;
+            };
+            auto ligneSep = []() {
+                auto *s = new QFrame; s->setFrameShape(QFrame::HLine);
+                s->setStyleSheet("QFrame{background:#c8ccd8;}"); return s;
+            };
+            QWidget *wrapT = ui->editToolT->parentWidget();
+            const auto rT   = prendre(wrapT && wrapT != ui->tabTool ? wrapT : ui->editToolT);
+            const auto rS   = prendre(ui->editToolS);
+            const auto rBr  = prendre(ui->widgetBroche);
+            const auto rDe  = prendre(ui->editToolDescente);
+            const auto rPe  = prendre(ui->editToolPendul);
+            const auto rAv  = prendre(ui->editToolAvance);
+            const auto rDL  = prendre(ui->editToolDL);
+            const auto rDR  = prendre(ui->editToolDR);
+            const auto rDR2 = prendre(ui->editToolDR2);
+            const auto rM1  = prendre(ui->editToolFM1);
+            const auto rM2  = prendre(ui->editToolFM2);
+
+            // Libellés : texte simple, plus d'icône à taille fixe
+            for (QLabel *l : {ui->lblToolT, ui->lblToolS, ui->lblToolDescente, ui->lblToolPendul,
+                              ui->lblToolAvance, ui->lblToolDL, ui->lblToolDR, ui->lblToolDR2,
+                              ui->lblToolFM1, ui->lblToolFM2, ui->lblToolBroche}) {
+                if (!l) continue;
+                l->setPixmap(QPixmap());
+                l->setScaledContents(false);
+                l->setMinimumSize(0, 0);
+                l->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+                QFont fo = l->font(); fo.setBold(false); l->setFont(fo);
+            }
+            ui->lblToolT->setText("Numéro / nom");
+            ui->lblToolS->setText("Vitesse broche S (tr/min)");
+            ui->lblToolBroche->setText("Sens de rotation");
+            ui->lblToolDescente->setText("Avance plongée (mm/min)");
+            ui->lblToolPendul->setText("Avance rampe (mm/min)");
+            ui->lblToolAvance->setText("Avance travail (mm/min)");
+            ui->lblToolDL->setText("Correction longueur DL (mm)");
+            ui->lblToolDR->setText("Correction rayon DR (mm)");
+            ui->lblToolDR2->setText("Correction rayon d'angle DR2 (mm)");
+            ui->lblToolFM1->setText("Fonction M 1");
+            ui->lblToolFM2->setText("Fonction M 2");
+            ui->radioM03->setText("M3  (sens horaire)");
+            ui->radioM04->setText("M4  (sens anti-horaire)");
+            ui->editToolDL->setPlaceholderText("0 = pas de correction");
+            ui->editToolDR->setPlaceholderText("0 = pas de correction");
+            ui->editToolDR2->setPlaceholderText("0 = pas de correction");
+            ui->editToolFM1->setPlaceholderText("ex. M8 (arrosage)");
+            ui->editToolFM2->setPlaceholderText("ex. M7 (brouillard)");
+
+            f->setLabelAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            f->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+            auto ajouter = [f](const QPair<QWidget*, QWidget*> &r) {
+                if (r.first) f->addRow(r.first, r.second); else f->addRow(QString(), r.second);
+            };
+            f->addRow(section("OUTIL"));            ajouter(rT);
+            f->addRow(ligneSep());
+            f->addRow(section("BROCHE"));           ajouter(rS);  ajouter(rBr);
+            f->addRow(ligneSep());
+            f->addRow(section("AVANCES"));          ajouter(rDe); ajouter(rPe); ajouter(rAv);
+            f->addRow(ligneSep());
+            f->addRow(section("CORRECTIONS OUTIL")); ajouter(rDL); ajouter(rDR); ajouter(rDR2);
+            f->addRow(ligneSep());
+            f->addRow(section("FONCTIONS M"));      ajouter(rM1); ajouter(rM2);
         }
     }
 
@@ -183,6 +268,7 @@ UnitEditor::UnitEditor(QWidget *parent)
         m_modeUsinValue = m;
         if (!m_syncing) emit dataChanged();
     });
+    connect(m_modeUsin, &ModeUsinWidget::helpHover, this, &UnitEditor::helpRequested);
 
     // ─────────────────────────────────────────────
     //  Initialisation standard
@@ -210,23 +296,33 @@ UnitEditor::~UnitEditor()
 }
 
 static const QString CSS = QStringLiteral(
-    "QWidget { background:#D6D6D6; color:#202020; }"
+    // Taille de texte augmentée : la colonne de saisie a de la place,
+    // on privilégie la lisibilité (pupitre / écran d'atelier).
+    "QWidget { background:#D6D6D6; color:#202020; font-size:12.5pt; }"
     "QTabWidget::pane { background:#D6D6D6; border:1px solid #808080; }"
-    "QTabBar::tab { background:#C0C0C0; color:#404040; padding:6px 14px;"
+    "QTabBar::tab { background:#C0C0C0; color:#404040; padding:6px 16px; font-size:11.5pt;"
     "  border:1px solid #909090; border-bottom:none; border-radius:3px 3px 0 0; }"
     "QTabBar::tab:selected { background:#D6D6D6; color:#0000FF; font-weight:bold; }"
-    "QLineEdit, QDoubleSpinBox, QSpinBox {"
-    "  background:#FFFFFF; color:#0000CC;"
-    "  border:1px solid #909090; border-radius:3px; padding:2px 4px; }"
-    "QLineEdit:focus, QDoubleSpinBox:focus, QSpinBox:focus {"
+    "QLineEdit, QDoubleSpinBox, QSpinBox, QComboBox {"
+    "  background:#FFFFFF; color:#0000CC; font-size:13pt;"
+    "  border:1px solid #909090; border-radius:3px; padding:2px 5px; }"
+    "QLineEdit:focus, QDoubleSpinBox:focus, QSpinBox:focus, QComboBox:focus {"
     "  border:2px solid #0000FF; }"
-    "QCheckBox { color:#202020; }"
-    "QRadioButton { color:#202020; }"
-    "QPushButton { background:#E0E0E0; color:#202020;"
+    "QCheckBox { color:#202020; font-size:12pt; }"
+    "QRadioButton { color:#202020; font-size:12pt; }"
+    "QPushButton { background:#E0E0E0; color:#202020; font-size:12pt;"
     "  border:1px solid #909090; border-radius:3px; padding:4px 10px; }"
     "QPushButton:pressed { background:#C0C0C0; }"
     "QLabel[badge=true] { background:#0000FF; color:#FFFFFF;"
-    "  border-radius:3px; padding:1px 4px; font-size:8pt; }"
+    "  border-radius:3px; padding:1px 4px; font-size:9pt; }"
+    // Sélecteurs préfixés par UnitEditor : plus spécifiques que les règles
+    // de la feuille de style globale (TNC620 : QLineEdit/QLabel en 11pt)
+    "UnitEditor QLabel { font-size:13pt; }"
+    "UnitEditor QRadioButton, UnitEditor QCheckBox { font-size:13pt; }"
+    "UnitEditor QLineEdit, UnitEditor QSpinBox, UnitEditor QDoubleSpinBox, UnitEditor QComboBox {"
+    "  font-size:14pt; padding:3px 6px; }"
+    "UnitEditor QTabBar::tab { font-size:12pt; padding:7px 16px; }"
+    "UnitEditor QLabel[badge=true] { font-size:10pt; }"
 );
 
 BadgeG* UnitEditor::installBadgeG(QWidget *field, const QString &tooltip,
@@ -290,6 +386,9 @@ void UnitEditor::setBlkFormHerited(bool origineDefinie, int origine,
 void UnitEditor::applyStyleSheet()
 {
     setStyleSheet(CSS);
+    // Icônes des avances du Sommaire : 24 → 32 px
+    for (QLabel *ico : {ui->lblSomDescente, ui->lblSomPendul, ui->lblSomAvance})
+        if (ico) { ico->setMinimumSize(32, 32); ico->setMaximumSize(32, 32); }
     for (QLabel *lbl : {ui->lblSomTMode, ui->lblSomSMode,
                         ui->lblSomDescenteMode, ui->lblSomAvanceMode})
         lbl->setProperty("badge", false);
@@ -372,7 +471,7 @@ void UnitEditor::setBlockMode(BlockMode mode)
         if (globIdx >= 0)                 ui->tabWidget->setTabVisible(globIdx, true);
         // Restaurer les labels et widgets modifiés par FraisageTrou
         if (ui->lblSomPasse)    ui->lblSomPasse->setText("Passe");
-        if (ui->lblSomDescente) ui->lblSomDescente->setText("Descente");
+        if (ui->lblSomDescente) ui->lblSomDescente->setPixmap(QPixmap(":/unit/avance descente.png"));  // icône (un texte était tronqué en "sce")
         if (ui->lblCRayon)      ui->lblCRayon->setText("Rayon");
         if (ui->editPositionFichier) ui->editPositionFichier->setVisible(true);
         for (QSpinBox *sb : {ui->spinLigneNbPts, ui->spinGrilleNbX,
@@ -409,7 +508,7 @@ void UnitEditor::setBlockMode(BlockMode mode)
     //  affichés dans le Sommaire.
     if (mode == Contour) {
         if (ui->lblSomPasse)    ui->lblSomPasse->setText("Passe");
-        if (ui->lblSomDescente) ui->lblSomDescente->setText("Descente");
+        if (ui->lblSomDescente) ui->lblSomDescente->setPixmap(QPixmap(":/unit/avance descente.png"));  // icône (un texte était tronqué en "sce")
         if (ui->frameDescente)  ui->frameDescente->setVisible(true);
         if (ui->lblSomDescenteMode) ui->lblSomDescenteMode->setVisible(true);
         if (ui->lblSomAvanceMode)   ui->lblSomAvanceMode->setVisible(true);
@@ -810,7 +909,7 @@ void UnitEditor::setupTrouTab()
 
     auto secLabel = [](const QString &t) {
         auto *l = new QLabel(t);
-        l->setStyleSheet("color:#3a8f34;font-size:11px;font-weight:700;letter-spacing:2px;padding-top:4px;");
+        l->setStyleSheet("color:#3a8f34;font-size:15px;font-weight:700;letter-spacing:2px;padding-top:4px;");
         return l;
     };
     auto sepLine = []() {
@@ -966,7 +1065,7 @@ void UnitEditor::setupContourTab()
 
     auto secLabel = [](const QString &t) {
         auto *l = new QLabel(t);
-        l->setStyleSheet("color:#3a8f34;font-size:11px;font-weight:700;"
+        l->setStyleSheet("color:#3a8f34;font-size:15px;font-weight:700;"
                          "letter-spacing:2px;padding-top:4px;");
         return l;
     };
@@ -989,6 +1088,7 @@ void UnitEditor::setupContourTab()
         m_modeUsinContourValue = m;
         if (!m_syncing) emit dataChanged();
     });
+    connect(m_modeUsinContour, &ModeUsinWidget::helpHover, this, &UnitEditor::helpRequested);
 
     // ── Géométrie ────────────────────────────────────────────
     form->addRow(secLabel("GÉOMÉTRIE"));
@@ -1637,6 +1737,11 @@ void UnitEditor::installLeEventFilters()
     ui->editSomAvance->installEventFilter(this);
     ui->editToolAvance->installEventFilter(this);
     ui->editPMAvanceFin->installEventFilter(this);
+    ui->editPMRayonES->installEventFilter(this);
+    // Champs du contournage : aide animée au focus
+    for (QWidget *w : std::initializer_list<QWidget*>{m_cntProfondeur, m_cntPasse, m_cntSurepLat,
+                                                       m_cntSurepProf, m_cntPasseFin, m_cntStepOverPct})
+        if (w) w->installEventFilter(this);
     ui->editGlobPositionnement->installEventFilter(this);
     ui->editSomModelePts->installEventFilter(this);
     ui->editPositionFichier->installEventFilter(this);
@@ -1735,6 +1840,10 @@ bool UnitEditor::eventFilter(QObject *obj, QEvent *event)
         if (auto *le = qobject_cast<QLineEdit*>(obj))
             QTimer::singleShot(0, le, [le]{ le->selectAll(); });
 
+        // Vider le cadre AIDE : le champ qui prend le focus remet sa propre
+        // aide juste après (sinon l'animation du champ précédent reste)
+        emit helpRequested(QString());
+
         if (obj == ui->editSomT || obj == ui->editToolT) {
             onSomTFocused(); return false;
         }
@@ -1742,16 +1851,39 @@ bool UnitEditor::eventFilter(QObject *obj, QEvent *event)
             if (m_blockMode != FraisageTrou) onSomSFocused(); return false;
         }
         if (obj == ui->editSomDescente || obj == ui->editToolDescente) {
-            if (m_blockMode != FraisageTrou) onSomDescFocused(); return false;
+            if (m_blockMode != FraisageTrou) onSomDescFocused();
+            emit helpRequested("avance_plongee");
+            return false;
         }
         if (obj == ui->editSomPendul || obj == ui->editToolPendul) {
-            onSomPendulFocused(); return false;
+            onSomPendulFocused();
+            emit helpRequested("avance_rampe");
+            return false;
         }
         if (obj == ui->editSomAvance || obj == ui->editToolAvance) {
-            if (m_blockMode != FraisageTrou) onSomAvanceFocused(); return false;
+            if (m_blockMode != FraisageTrou) onSomAvanceFocused();
+            emit helpRequested("avance");
+            return false;
         }
         if (obj == ui->editPMAvanceFin) {
-            onPMAvanceFinFocused(); return false;
+            onPMAvanceFinFocused();
+            emit helpRequested("avance");
+            return false;
+        }
+        // Position angulaire : la rotation se fait autour du point coché
+        if (obj == ui->editPMAngulaire) {
+            emit helpRequested(QString("posang_%1").arg(m_posGroup ? m_posGroup->checkedId() : 5));
+            return false;
+        }
+        // Contournage
+        {
+            const QString k = obj == m_cntProfondeur ? "cnt_profondeur"
+                            : obj == m_cntPasse      ? "cnt_passe"
+                            : obj == m_cntSurepLat   ? "cnt_surep_lat"
+                            : obj == m_cntSurepProf  ? "surep_fond"
+                            : obj == m_cntPasseFin   ? "cnt_passe_fin"
+                            : obj == m_cntStepOverPct ? "recouvrement" : QString();
+            if (!k.isEmpty()) { emit helpRequested(k); return false; }
         }
         if (obj == ui->editGlobPositionnement) {
             onGlobPositFocused(); return false;
@@ -1762,8 +1894,7 @@ bool UnitEditor::eventFilter(QObject *obj, QEvent *event)
         if (obj == ui->radioHelicoidale ||
             obj == ui->radioRampe       ||
             obj == ui->radioDirecte) {
-            onPlongeeFocused();
-            emit helpRequested("mode_plongee");
+            onPlongeeFocused();   // émet aussi l'aide animée du mode choisi
             return false;
         }
         if (obj == ui->radioAvalant || obj == ui->radioOpposition) {
@@ -1777,8 +1908,8 @@ bool UnitEditor::eventFilter(QObject *obj, QEvent *event)
                                                           {ui->editSomLargeur,    "longueur_largeur"},
                                                           {ui->editPMLongueur,    "longueur_largeur"},
                                                           {ui->editPMLargeur,     "longueur_largeur"},
-                                                          {ui->editSomDiametre,   "longueur_largeur"},
-                                                          {ui->editPMDiametre,    "longueur_largeur"},
+                                                          {ui->editSomDiametre,   "diametre"},
+                                                          {ui->editPMDiametre,    "diametre"},
                                                           {ui->editSomProfondeur, "profondeur"},
                                                           {ui->editPMProfondeur,  "profondeur"},
                                                           {ui->editSomPasse,      "prof_passe"},
@@ -1789,11 +1920,12 @@ bool UnitEditor::eventFilter(QObject *obj, QEvent *event)
                                                           {ui->editPMSurepProf,   "surep_fond"},
                                                           {ui->editSomRayon,      "rayon_angle"},
                                                           {ui->editPMRayon,       "rayon_angle"},
-                                                          {ui->editPMPasseFin,    "surep_lat"},
+                                                          {ui->editPMPasseFin,   "passe_fin"},
                                                           {ui->editPMSurepFinLat, "surep_fin"},
                                                           {ui->editPMSurepFinProf,"surep_fin"},
                                                           {ui->editGlobApproche,  "approche"},
                                                           {ui->editGlobSautBride, "approche"},
+                                                          {ui->editPMRayonES,     "rayon_es"},
                                                           };
         if (helpMap.contains(obj)) {
             emit helpRequested(helpMap.value(obj));
@@ -1907,12 +2039,14 @@ void UnitEditor::onPlongeeFocused()
     static const QStringList labs = {"Hélicoïdale","Rampe","Directe"};
     static const QStringList desc = {"spirale","zigzag","direct"};
     setSkContext(SK_PLONGEE, labs, m_modePlongee, desc[m_modePlongee]);
+    emit helpRequested(QString("plongee_%1").arg(m_modePlongee));
 }
 void UnitEditor::onFraisageFocused()
 {
     static const QStringList labs = {"En avalant","En opposition"};
     static const QStringList desc = {"avalant","opposition"};
     setSkContext(SK_FRAISAGE, labs, m_modeFraisage, desc[m_modeFraisage]);
+    emit helpRequested(QString("fraisage_%1").arg(m_modeFraisage));
 }
 void UnitEditor::emitDefaultContext()  { m_skContext=SK_NONE; emit softkeyContextChanged(SK_NONE,{},-1,""); }
 
@@ -2191,7 +2325,7 @@ void UnitEditor::updateBadgeS()
     ui->lblSomSMode->setText(labs[m_modeS]);
     ui->lblSomSMode->setProperty("badge", m_modeS==1);
     ui->lblSomSUnit->setText(units[m_modeS]);
-    ui->lblToolS->setText(m_modeS==0 ? "S  (tr/min)" : "Vc  (m/min)");
+    ui->lblToolS->setText(m_modeS==0 ? "Vitesse broche S (tr/min)" : "Vitesse de coupe Vc (m/min)");
     style()->unpolish(ui->lblSomSMode); style()->polish(ui->lblSomSMode);
 }
 void UnitEditor::updateBadgeDescente()
@@ -2200,7 +2334,7 @@ void UnitEditor::updateBadgeDescente()
     static const QStringList units = {"mm/min","mm/tr","mm/dent"};
     ui->lblSomDescenteMode->setText(labs[m_modeDescente]);
     ui->lblSomDescenteUnit->setText(units[m_modeDescente]);
-    ui->lblToolDescente->setText(QString("F desc. (%1)").arg(units[m_modeDescente]));
+    ui->lblToolDescente->setText(QString("Avance plongée (%1)").arg(units[m_modeDescente]));
     style()->unpolish(ui->lblSomDescenteMode); style()->polish(ui->lblSomDescenteMode);
 }
 // ─────────────────────────────────────────────────────────────────────
@@ -2227,7 +2361,7 @@ void UnitEditor::updateBadgePendul()
     static const QStringList units = {"mm/min","mm/tr","mm/dent"};
     ui->lblSomPendulMode->setText(labs[m_modePendul]);
     ui->lblSomPendulUnit->setText(units[m_modePendul]);
-    ui->lblToolPendul->setText(QString("F pendul. (%1)").arg(units[m_modePendul]));
+    ui->lblToolPendul->setText(QString("Avance rampe (%1)").arg(units[m_modePendul]));
     style()->unpolish(ui->lblSomPendulMode); style()->polish(ui->lblSomPendulMode);
 }
 void UnitEditor::updateBadgeAvance()
@@ -2236,7 +2370,7 @@ void UnitEditor::updateBadgeAvance()
     static const QStringList units = {"mm/min","mm/tr","mm/dent"};
     ui->lblSomAvanceMode->setText(labs[m_modeAvance]);
     ui->lblSomAvanceUnit->setText(units[m_modeAvance]);
-    ui->lblToolAvance->setText(QString("F trav. (%1)").arg(units[m_modeAvance]));
+    ui->lblToolAvance->setText(QString("Avance travail (%1)").arg(units[m_modeAvance]));
     style()->unpolish(ui->lblSomAvanceMode); style()->polish(ui->lblSomAvanceMode);
 }
 void UnitEditor::updateBadgeAvanceFin() {}
@@ -2251,6 +2385,31 @@ void UnitEditor::setupPositionPocheGroup()
     m_posGroup->addButton(ui->btnPos9,9);
     m_posGroup->setExclusive(true);
     connect(m_posGroup, &QButtonGroup::idClicked, this, &UnitEditor::onPositionPocheClicked);
+
+    // Choix réduits : les 4 coins et le centre (7 9 / 5 / 1 3).
+    // Les milieux de côtés (2 4 6 8) restent lus dans les anciens
+    // fichiers mais ne sont plus proposés.
+    for (QAbstractButton *b : {ui->btnPos2, ui->btnPos4, ui->btnPos6, ui->btnPos8})
+        if (b) b->setVisible(false);
+
+    // La position angulaire vient APRÈS le point de la poche : on la
+    // sort du formulaire commun et on la place sous le pavé.
+    if (ui->formPMCommun && ui->editPMAngulaire && ui->layoutPMpoche && ui->widgetPositionPoche) {
+        int r = -1; QFormLayout::ItemRole ro;
+        ui->formPMCommun->getWidgetPosition(ui->editPMAngulaire, &r, &ro);
+        if (r >= 0) {
+            QFormLayout::TakeRowResult t = ui->formPMCommun->takeRow(r);
+            delete t.labelItem; delete t.fieldItem;
+            auto *w = new QWidget;
+            auto *fl = new QFormLayout(w);
+            fl->setContentsMargins(0, 4, 0, 0);
+            ui->lblPMAngulaire->setText("Position angulaire (°)");
+            ui->editPMAngulaire->setPlaceholderText("0 = pas de rotation");
+            fl->addRow(ui->lblPMAngulaire, ui->editPMAngulaire);
+            const int idx = ui->layoutPMpoche->indexOf(ui->widgetPositionPoche);
+            ui->layoutPMpoche->insertWidget(idx + 1, w);
+        }
+    }
 }
 void UnitEditor::onTypeRectToggled(bool /*checked*/) { }
 void UnitEditor::updatePocheTypeVisibility(bool isCirc)
@@ -2258,7 +2417,11 @@ void UnitEditor::updatePocheTypeVisibility(bool isCirc)
     ui->widgetDimRect->setVisible(!isCirc); ui->widgetDimCirc->setVisible(isCirc);
     ui->widgetPMRect->setVisible(!isCirc);  ui->widgetPMCirc->setVisible(isCirc);
 }
-void UnitEditor::onPositionPocheClicked(int) {}
+void UnitEditor::onPositionPocheClicked(int id)
+{
+    // Aide : montre le point de référence coché sur la poche
+    emit helpRequested(QString("posref_%1").arg(id));
+}
 
 void UnitEditor::onSomTChanged(const QString &v)        { if(m_syncing)return; m_syncing=true; ui->editToolT->setText(v); m_syncing=false; }
 void UnitEditor::onSomSChanged(const QString &v)        { if(m_syncing)return; m_syncing=true; ui->editToolS->setText(v); m_syncing=false; }
@@ -3130,7 +3293,7 @@ void UnitEditor::setupFraisageTrouTab()
 
     auto secLabel = [](const QString &t) {
         auto *l = new QLabel(t);
-        l->setStyleSheet("color:#3a8f34;font-size:11px;font-weight:700;"
+        l->setStyleSheet("color:#3a8f34;font-size:15px;font-weight:700;"
                          "letter-spacing:2px;padding-top:4px;");
         return l;
     };
@@ -3190,29 +3353,33 @@ void UnitEditor::setupFraisageTrouTab()
         auto *ico = new QLabel;
         QPixmap px(iconPath);
         if (!px.isNull())
-            ico->setPixmap(px.scaled(100,80, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+            ico->setPixmap(px.scaled(ModeUsinWidget::kIconW, ModeUsinWidget::kIconH,
+                                     Qt::KeepAspectRatio, Qt::SmoothTransformation));
         ico->setAlignment(Qt::AlignCenter);
         auto *txt = new QLabel(label);
         txt->setAlignment(Qt::AlignCenter);
-        txt->setStyleSheet("font-size:10pt;color:#404040;");
+        txt->setStyleSheet("font-size:11pt;color:#404040;");
         lay->addWidget(ico);
         lay->addWidget(txt);
         // Style du wrapper selon état du radio
         wrap->setProperty("modeBtn", true);
+        wrap->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        wrap->setMinimumWidth(ModeUsinWidget::kTuileMinW);
+        wrap->setMaximumWidth(ModeUsinWidget::kTuileMaxW);
         wrap->setStyleSheet(
             "QWidget[modeBtn=true] { border:1px solid #808080; border-radius:4px;"
-            "background:transparent; min-width:120px; }"
+            "background:transparent;  }"
         );
         // Clic sur le wrapper → cocher le radio
         QObject::connect(rb, &QRadioButton::toggled, wrap, [wrap, txt](bool checked){
             wrap->setStyleSheet(checked
                 ? "QWidget[modeBtn=true]{border:2px solid #00AA00;border-radius:4px;"
-                  "background:#E0E8FF;min-width:120px;}"
+                  "background:#E0E8FF;}"
                 : "QWidget[modeBtn=true]{border:1px solid #808080;border-radius:4px;"
-                  "background:transparent;min-width:120px;}");
+                  "background:transparent;}");
             txt->setStyleSheet(checked
-                ? "font-size:10pt;font-weight:bold;color:#004400;"
-                : "font-size:10pt;color:#404040;");
+                ? "font-size:11pt;font-weight:bold;color:#004400;"
+                : "font-size:11pt;color:#404040;");
         });
         // Installer event filter pour capturer le clic sur le wrap
         struct ClickFilter : QObject {
@@ -3262,10 +3429,9 @@ void UnitEditor::setupFraisageTrouTab()
         auto *modeLay  = new QHBoxLayout(modeWrap);
         modeLay->setContentsMargins(0,0,0,0); modeLay->setSpacing(8);
         // Les wrappers sont les parents des radios (créés dans makeModeBtn)
-        modeLay->addWidget(m_ftRbModeFin->parentWidget());
-        modeLay->addWidget(m_ftRbModeEb->parentWidget());
-        modeLay->addWidget(m_ftRbModeEbFin->parentWidget());
-        modeLay->addStretch();
+        modeLay->addWidget(m_ftRbModeFin->parentWidget(), 1);
+        modeLay->addWidget(m_ftRbModeEb->parentWidget(), 1);
+        modeLay->addWidget(m_ftRbModeEbFin->parentWidget(), 1);
         form->addRow("Mode", modeWrap);
     }
 
@@ -3316,7 +3482,7 @@ void UnitEditor::setupFraisageTrouTab()
     bgF->addButton(m_ftRbFmin, 0);
     bgF->addButton(m_ftRbFz,   2);
     form->addRow("Avance contour", fieldRow(m_ftAvance, rbRow({m_ftRbFmin, m_ftRbFz})));
-    installFieldHelp(m_ftAvance, "ft_avance");
+    installFieldHelp(m_ftAvance, "avance");
 
     // Avance plongée — distincte de l'avance de contournage (avant :
     // dupliquée depuis m_ftAvance, impossible de mettre une plongée
@@ -3329,7 +3495,7 @@ void UnitEditor::setupFraisageTrouTab()
     bgFDesc->addButton(m_ftRbFminDesc, 0);
     bgFDesc->addButton(m_ftRbFzDesc,   2);
     form->addRow("Avance plongée", fieldRow(m_ftDescente, rbRow({m_ftRbFminDesc, m_ftRbFzDesc})));
-    installFieldHelp(m_ftDescente, "ft_avance_plongee");
+    installFieldHelp(m_ftDescente, "avance_plongee");
 
     form->addRow(sepLine());
     // ── SENS ──────────────────────────────────────────────────
@@ -3373,6 +3539,13 @@ void UnitEditor::setupFraisageTrouTab()
 
     form->addRow("Approche",       m_ftApproche);
     form->addRow("Saut de bride",  m_ftSautBride);
+    // Aide animée : descente de finition, sens, sécurités
+    installFieldHelp(m_ftRbDescenteHelico,  "ft_desc_helico");
+    installFieldHelp(m_ftRbDescenteDirecte, "ft_desc_directe");
+    installFieldHelp(m_ftRbAvalant,         "fraisage_0");
+    installFieldHelp(m_ftRbOpposition,      "fraisage_1");
+    installFieldHelp(m_ftApproche,          "approche");
+    installFieldHelp(m_ftSautBride,         "approche");
     form->addRow("Z liaison",      m_ftZLiaison);
     form->addRow("Positionnement", fieldRow(m_ftAvanceLiaison,
                                    rbRow({m_ftRbLiaisonG0, m_ftRbLiaisonF})));

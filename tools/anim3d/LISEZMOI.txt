@@ -1,0 +1,12 @@
+Animations d'aide 3D d'EazyNC
+=============================
+Moteur de rendu maison (Python + numpy + Pillow), sans Blender.
+
+  pip install numpy pillow
+  python scenes.py plongee_0            -> out/plongee_0.gif
+  python scenes.py --apercu plongee_0   -> out/apercu_plongee_0.png (6 images)
+
+Copier ensuite le GIF dans help_anim/ (déclaré dans help_anim.qrc).
+Le nom du GIF = la clé d'aide du champ (ex. prof_passe, surep_lat, fraisage_0).
+S'il n'existe pas de GIF pour une clé, EazyNC garde le dessin animé 2D.
+Police utilisée : DejaVu (chemin à adapter dans anim3d.py sous Windows).

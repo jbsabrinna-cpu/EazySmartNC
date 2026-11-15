@@ -1,0 +1,44 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <!-- Animations d'aide 3D (cadre AIDE) — fabriquées par tools/anim3d -->
+    <qresource prefix="/help_anim">
+        <file>help_anim/plongee_0.gif</file>
+        <file>help_anim/plongee_1.gif</file>
+        <file>help_anim/plongee_2.gif</file>
+        <file>help_anim/prof_passe.gif</file>
+        <file>help_anim/profondeur.gif</file>
+        <file>help_anim/approche.gif</file>
+        <file>help_anim/recouvrement.gif</file>
+        <file>help_anim/surep_lat.gif</file>
+        <file>help_anim/surep_lat_circ.gif</file>
+        <file>help_anim/surep_fond.gif</file>
+        <file>help_anim/fraisage_0.gif</file>
+        <file>help_anim/fraisage_1.gif</file>
+        <file>help_anim/rayon_angle.gif</file>
+        <file>help_anim/longueur_largeur.gif</file>
+        <file>help_anim/diametre.gif</file>
+        <file>help_anim/prof_passe_circ.gif</file>
+        <file>help_anim/profondeur_circ.gif</file>
+        <file>help_anim/recouvrement_circ.gif</file>
+        <file>help_anim/surep_fond_circ.gif</file>
+        <file>help_anim/ft_diam_fini.gif</file>
+        <file>help_anim/ft_diam_avant.gif</file>
+        <file>help_anim/ft_profondeur.gif</file>
+        <file>help_anim/ft_pas_helico.gif</file>
+        <file>help_anim/ft_surep_lat.gif</file>
+        <file>help_anim/ft_passe_fin.gif</file>
+        <file>help_anim/ft_desc_helico.gif</file>
+        <file>help_anim/ft_desc_directe.gif</file>
+        <file>help_anim/avance.gif</file>
+        <file>help_anim/avance_plongee.gif</file>
+        <file>help_anim/avance_rampe.gif</file>
+        <file>help_anim/rayon_es.gif</file>
+        <file>help_anim/surep_fin.gif</file>
+        <file>help_anim/cnt_passe.gif</file>
+        <file>help_anim/cnt_profondeur.gif</file>
+        <file>help_anim/cnt_surep_lat.gif</file>
+        <file>help_anim/cnt_passe_fin.gif</file>
+        <file>help_anim/passe_fin.gif</file>
+        <file>help_anim/passe_fin_circ.gif</file>
+    </qresource>
+</RCC>

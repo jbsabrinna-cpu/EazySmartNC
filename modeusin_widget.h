@@ -5,7 +5,7 @@
 #include <QButtonGroup>
 
 // ═══════════════════════════════════════════════════════════════
-//  ModeUsinWidget — 3 boutons radio "Opérations d'usinage"
+//  ModeUsinWidget — 3 grandes tuiles "Opérations d'usinage"
 //
 //  Valeurs :
 //    0 = Ébauche + Finition  (défaut)
@@ -16,6 +16,9 @@
 //    auto *w = new ModeUsinWidget(this);
 //    w->setMode(d.modeUsin);
 //    connect(w, &ModeUsinWidget::modeChanged, this, [&](int m){ d.modeUsin = m; });
+//
+//  styleTuile() : feuille de style commune des tuiles de mode
+//  (aussi utilisée par le Fraisage de trou).
 // ═══════════════════════════════════════════════════════════════
 class QAbstractButton;
 
@@ -28,8 +31,19 @@ public:
     int  mode() const;
     void setMode(int m);
 
+    // Taille commune des tuiles
+    static constexpr int kIconW   = 150;
+    static constexpr int kIconH   = 112;
+    static constexpr int kTuileMinW = 150;
+    static constexpr int kTuileMaxW = 260;
+    static QString styleTuile();
+
 signals:
-    void modeChanged(int mode);   // émis quand l'opérateur change le bouton
+    void modeChanged(int mode);          // émis quand l'opérateur change le bouton
+    void helpHover(const QString &key);  // survol : clé d'aide ("" en sortie)
+
+protected:
+    bool eventFilter(QObject *obj, QEvent *ev) override;
 
 private:
     void setupUi();
