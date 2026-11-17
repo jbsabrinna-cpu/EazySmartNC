@@ -9,6 +9,9 @@ DEFINES += NOMINMAX WIN32_LEAN_AND_MEAN
 # SOURCES
 #────────────────────────────────────────────
 SOURCES += \
+    cadview3d.cpp \
+    decoupe3d.cpp \
+    usinage3deditor.cpp \
     helpanimwidget.cpp \
     clipper2/clipper.engine.cpp \
     clipper2/clipper.offset.cpp \
@@ -27,6 +30,8 @@ SOURCES += \
     cycles/pocherectgenerator.cpp \
     cycles/percagegenerator.cpp \
     cycles/fraisagetrougenerator.cpp \
+    cycles/usinage3dgenerator.cpp \
+    blkmodele3d.cpp \
     executionpage.cpp \
     filebrowserpage.cpp \
     gcodeeditor.cpp \
@@ -52,6 +57,9 @@ SOURCES += \
 # HEADERS
 #────────────────────────────────────────────
 HEADERS += \
+    cadview3d.h \
+    decoupe3d.h \
+    usinage3deditor.h \
     helpanimwidget.h \
     occoffset.h \
     cadimporter.h \
@@ -63,12 +71,15 @@ HEADERS += \
     cycles/pocherectgenerator.h \
     cycles/percagegenerator.h \
     cycles/fraisagetrougenerator.h \
+    cycles/usinage3dgenerator.h \
+    blkmodele3d.h \
     filepreviewwidget.h \
     cadviewwidget.h \
     contoureditor.h \
     contourelement.h \
     crashhandler.h \
     pntfilebrowserdialog.h \
+    eazyfiledialog.h \
     pointfile.h \
     pointfileeditordialog.h \
     pointspreviewwidget.h \

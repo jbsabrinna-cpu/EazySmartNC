@@ -32,6 +32,8 @@ class QRadioButton;
 class QButtonGroup;
 class QFrame;
 
+class BlkModele3DWidget;
+
 class BlkFormWidget : public QWidget
 {
     Q_OBJECT
@@ -59,6 +61,10 @@ public:
                             double zApproche,  double avanceLiaison,
                             bool   m25RetourOrigine = true);
 
+    // ── Onglet 3 : Modèle 3D (STEP) + origine figée ───────────
+    QJsonObject modele3D() const;
+    void        setModele3D(const QJsonObject &d);
+
 signals:
     void dataChanged();
     void axisFieldFocused(int axisFace);  // 0=none 1=Xmin 2=Xmax 3=Ymin 4=Ymax 5=Zmin 6=Zmax
@@ -73,6 +79,7 @@ private:
     QWidget* buildParamsTab();
 
     QTabWidget     *m_tabs      = nullptr;
+    BlkModele3DWidget *m_modele = nullptr;
     // Dimensions
     QDoubleSpinBox *m_xMinus=nullptr, *m_xPlus=nullptr;
     QDoubleSpinBox *m_yMinus=nullptr, *m_yPlus=nullptr;
@@ -112,6 +119,8 @@ enum class BlockType {
     // Tenons
     TenonRect,      // Tenon rectangulaire
     TenonCirc,      // Tenon circulaire
+    // 3D
+    Usinage3D,      // Usinage d'un modèle STEP (ébauche par couches + finition)
     // Utilitaires (rétrocompat)
     Poche,          // ancien alias → PocheRect
     Trou            // ancien alias → Percage
@@ -136,6 +145,7 @@ inline QIcon blockIcon(BlockType t) {
     case BlockType::RainureCirc:   return QIcon(":/unit/rainure circulaire.png");
     case BlockType::TenonRect:     return QIcon(":/unit/tenon rectangulaire.png");
     case BlockType::TenonCirc:     return QIcon(":/unit/tenon circulaire.png");
+    case BlockType::Usinage3D:     return QIcon(":/unit/fraisage de poche contour.png");
     case BlockType::Poche:         return QIcon(":/unit/fraisage de poche rectangulaire.png");
     case BlockType::Trou:          return QIcon(":/unit/tous les cycle percage.png");
     }
@@ -161,6 +171,7 @@ inline QString blockLabel(BlockType t) {
     case BlockType::RainureCirc:    return "Rainure circ.";
     case BlockType::TenonRect:      return "Tenon rect.";
     case BlockType::TenonCirc:      return "Tenon circ.";
+    case BlockType::Usinage3D:      return "Usinage 3D";
     case BlockType::Poche:          return "Poche";
     case BlockType::Trou:           return "Trou";
     }
@@ -203,6 +214,7 @@ public:
     void insertAlesage();
     void insertContour();
     void insertPocheContour();
+    void insertUsinage3D();
     void insertSurfacage();
     void insertRainure();
     void insertRainureCirc();
@@ -264,6 +276,7 @@ private:
     QStackedWidget *m_rightStack = nullptr;
     BlkFormWidget  *m_blkForm    = nullptr;
     UnitEditor     *m_editor     = nullptr;
+    class Usinage3DEditor *m_u3d = nullptr;     // page du bloc Usinage 3D (pile index 2)
     CadViewWidget  *m_cadView    = nullptr;
     QFrame         *m_helpFrame  = nullptr;
     QLabel         *m_helpLabel  = nullptr;

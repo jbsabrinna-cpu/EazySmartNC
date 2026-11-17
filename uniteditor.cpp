@@ -25,6 +25,7 @@
 #include <QListWidget>
 #include <QFileDialog>
 #include <cmath>
+#include "eazyfiledialog.h"
 
 // ═══════════════════════════════════════════════════════════════
 // PlongeeIconWidget supprimé — icônes gérées via :/options/ (QPixmap)
@@ -1409,8 +1410,8 @@ void UnitEditor::setupContourTab()
         form->addRow("", bw);
         connect(bAdd, &QPushButton::clicked, this, [this]{
             QString dir = m_cntFilePath.isEmpty() ? QString() : QFileInfo(m_cntFilePath).absolutePath();
-            const QStringList fs = QFileDialog::getOpenFileNames(this, "Contours .cnt fermés", dir,
-                                                                 "Contours EazyNC (*.cnt)");
+            const QString f1 = EazyFileDialog::ouvrir(this, "Contour .cnt fermé à ajouter", dir, {"cnt"}, "CNT");
+            const QStringList fs = f1.isEmpty() ? QStringList() : QStringList{f1};
             for (const QString &f : fs) {
                 PocEntry e; e.file = f;
                 const auto cur = pocEntries();

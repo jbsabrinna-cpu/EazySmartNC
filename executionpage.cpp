@@ -24,7 +24,7 @@ QLabel* ExecutionPage::makeDroLabel(const QString &init)
         "QLabel{"
         "  background:#FFFFFF; color:#0000FF;"
         "  border:1px solid rgba(255,255,255,0.07); border-radius:3px;"
-        "  font-family:'IBM Plex Mono','Consolas',monospace;"
+        "  font-family:Consolas;"
         "  font-size:19px; font-weight:700; padding:2px 6px;"
         "  min-width:130px; min-height:30px;"
         "}");
@@ -59,7 +59,7 @@ QPushButton* ExecutionPage::makeJogBtn(const QString &label, const QString &colo
                          "QPushButton{"
                          "  background:%1;border:1px solid rgba(255,255,255,0.12);"
                          "  border-radius:4px;color:#000000;"
-                         "  font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;"
+                         "  font-family:Consolas;font-size:10px;font-weight:700;"
                          "}"
                          "QPushButton:pressed{background:#00AA00;border-color:#505050;color:#FFFFFF;}").arg(color));
     return b;
@@ -75,7 +75,7 @@ QPushButton* ExecutionPage::makeCycleBtn(const QString &label,
     b->setStyleSheet(QString(
                          "QPushButton{"
                          "  background:%1;border:2px solid %2;border-radius:4px;"
-                         "  color:%3;font-family:'IBM Plex Mono',monospace;"
+                         "  color:%3;font-family:Consolas;"
                          "  font-size:10px;font-weight:700;letter-spacing:1px;padding:0 8px;"
                          "}"
                          "QPushButton:pressed{border-width:3px;}").arg(bg, border, color));
@@ -139,7 +139,7 @@ void ExecutionPage::setupLeftPanel(QWidget *col)
                            "font-weight:700;letter-spacing:3px;background:transparent;");
         m_lblTool = new QLabel("T- H-");
         m_lblTool->setStyleSheet("color:#0000FF;font-size:9pt;font-weight:bold;"
-                                 "font-family:'IBM Plex Mono',monospace;background:transparent;");
+                                 "font-family:Consolas;background:transparent;");
         m_lblTool->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
         h->addWidget(lbl); h->addWidget(m_lblTool);
         lay->addWidget(w);
@@ -204,7 +204,7 @@ void ExecutionPage::setupLeftPanel(QWidget *col)
             auto *l = new QLabel(init);
             l->setStyleSheet(QString("QLabel{background:#0e1216;color:%1;"
                                      "border:1px solid rgba(255,255,255,0.07);border-radius:3px;"
-                                     "font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;"
+                                     "font-family:Consolas;font-size:11px;font-weight:700;"
                                      "padding:2px 5px;min-width:70px;}").arg(color));
             l->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
             return l;
@@ -258,7 +258,7 @@ void ExecutionPage::setupLeftPanel(QWidget *col)
             b->setStyleSheet(
                 "QPushButton{background:#EBEBEB;border:1px solid #808080;"
                 "border-radius:3px;color:rgba(200,212,240,0.55);"
-                "font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;}"
+                "font-family:Consolas;font-size:8px;font-weight:700;}"
                 "QPushButton:pressed{background:#00AA00;color:#FFFFFF;border-color:#505050;}");
             return b;
         };
@@ -348,7 +348,7 @@ void ExecutionPage::setupLeftPanel(QWidget *col)
         m_lblMessages->setWordWrap(true);
         m_lblMessages->setStyleSheet(
             "QLabel{color:rgba(200,212,240,0.5);font-size:9px;"
-            "font-family:'IBM Plex Mono',monospace;background:transparent;}");
+            "font-family:Consolas;background:transparent;}");
         v->addWidget(m_lblMessages);
         lay->addWidget(w);
     }
@@ -372,7 +372,7 @@ void ExecutionPage::setupRightPanel(QWidget *col)
 
         m_lblProgName = new QLabel("Aucun programme");
         m_lblProgName->setStyleSheet(
-            "font-family:'IBM Plex Mono',monospace;font-size:11px;"
+            "font-family:Consolas;font-size:11px;"
             "font-weight:700;color:#c8d4f0;background:transparent;");
         h->addWidget(m_lblProgName, 1);
 
@@ -381,7 +381,7 @@ void ExecutionPage::setupRightPanel(QWidget *col)
         m_lblModeBadge->setFixedHeight(22);
         m_lblModeBadge->setStyleSheet(
             "QLabel{background:#1e4d1a;border:1px solid #00AA00;border-radius:3px;"
-            "color:#00AA00;font-family:'IBM Plex Mono',monospace;"
+            "color:#00AA00;font-family:Consolas;"
             "font-size:8px;font-weight:700;letter-spacing:2px;padding:0 6px;}");
         h->addWidget(m_lblModeBadge);
 
@@ -390,7 +390,7 @@ void ExecutionPage::setupRightPanel(QWidget *col)
         btnLoad->setStyleSheet(
             "QPushButton{background:#1a2040;border:1px solid rgba(68,170,255,0.4);"
             "border-radius:4px;color:#0000FF;"
-            "font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:700;padding:0 10px;}"
+            "font-family:Consolas;font-size:9px;font-weight:700;padding:0 10px;}"
             "QPushButton:hover{background:#222a58;}");
         h->addWidget(btnLoad);
         connect(btnLoad, &QPushButton::clicked, this, &ExecutionPage::onChargerClicked);
@@ -436,7 +436,7 @@ void ExecutionPage::setupRightPanel(QWidget *col)
             "  border-bottom:1px solid rgba(255,255,255,0.04);"
             "  border-left:3px solid transparent;"
             "  padding:8px 10px;color:rgba(255,255,255,0.6);"
-            "  font-size:11px;font-family:'IBM Plex Mono',monospace;}"
+            "  font-size:11px;font-family:Consolas;}"
             "QListWidget::item:hover{background:rgba(255,255,255,0.03);}"
             "QListWidget::item:selected{"
             "  background:rgba(86,212,78,0.08);"
@@ -446,12 +446,10 @@ void ExecutionPage::setupRightPanel(QWidget *col)
                 this, &ExecutionPage::onBlockSelected);
         splitter->addWidget(listPanel);
 
-        // UnitEditor lecture seule
-        m_editor = new UnitEditor;
-        m_editor->setReadOnly(true);
-        splitter->addWidget(m_editor);
+        // UnitEditor lecture seule : créé seulement au premier bloc affiché
+        // (c'est un gros widget : ~4 s de démarrage en moins)
+        splitter->setObjectName("splitExecEnc");
         splitter->setStretchFactor(0,0);
-        splitter->setStretchFactor(1,1);
 
         encLay->addWidget(splitter, 1);
         m_viewStack->addWidget(m_encView);   // index 0
@@ -478,7 +476,7 @@ void ExecutionPage::setupRightPanel(QWidget *col)
             "  border-left:4px solid transparent;"
             "  padding:4px 10px 4px 6px;"
             "  color:rgba(200,212,240,0.7);"
-            "  font-size:11px;font-family:'IBM Plex Mono',monospace;}"
+            "  font-size:11px;font-family:Consolas;}"
             "QListWidget::item:hover{background:rgba(255,255,255,0.03);}"
             "QListWidget::item:selected{"
             "  background:rgba(86,212,78,0.10);"
@@ -503,7 +501,7 @@ void ExecutionPage::switchToEncMode()
         m_lblModeBadge->setText("ENC");
         m_lblModeBadge->setStyleSheet(
             "QLabel{background:#1e4d1a;border:1px solid #00AA00;border-radius:3px;"
-            "color:#00AA00;font-family:'IBM Plex Mono',monospace;"
+            "color:#00AA00;font-family:Consolas;"
             "font-size:8px;font-weight:700;letter-spacing:2px;padding:0 6px;}");
     }
 }
@@ -516,7 +514,7 @@ void ExecutionPage::switchToRawMode()
         m_lblModeBadge->setText("NC");
         m_lblModeBadge->setStyleSheet(
             "QLabel{background:#1a2040;border:1px solid #0000FF;border-radius:3px;"
-            "color:#0000FF;font-family:'IBM Plex Mono',monospace;"
+            "color:#0000FF;font-family:Consolas;"
             "font-size:8px;font-weight:700;letter-spacing:2px;padding:0 6px;}");
     }
 }
@@ -616,7 +614,16 @@ void ExecutionPage::offerProgram(const QVector<BlockData> &blocks,
 // ─────────────────────────────────────────────────────────────
 void ExecutionPage::onBlockSelected(int row)
 {
-    if (row < 0 || row >= m_blocks.size() || !m_editor) return;
+    if (row < 0 || row >= m_blocks.size()) return;
+    if (!m_editor) {
+        if (auto *sp = m_encView ? m_encView->findChild<QSplitter*>("splitExecEnc") : nullptr) {
+            m_editor = new UnitEditor;
+            m_editor->setReadOnly(true);
+            sp->addWidget(m_editor);
+            sp->setStretchFactor(1, 1);
+        }
+        if (!m_editor) return;
+    }
     m_currentBlock = row;
     m_editor->setReadOnly(true);   // ← avant load() pour bloquer saveRequested
     const BlockData &b = m_blocks[row];
@@ -741,12 +748,12 @@ void ExecutionPage::highlightBlock(int blockId)
         if (m_blocks[i].id == blockId) {
             item->setBackground(QColor(86,212,78,28));
             item->setForeground(QColor("#00AA00"));
-            item->setFont(QFont("IBM Plex Mono",10,QFont::Bold));
+            item->setFont(QFont("Consolas",10,QFont::Bold));
             m_blockList->scrollToItem(item);
         } else {
             item->setBackground(QColor(0,0,0,0));
             item->setForeground(QColor(255,255,255,153));
-            item->setFont(QFont("IBM Plex Mono",10));
+            item->setFont(QFont("Consolas",10));
         }
     }
 }
@@ -764,12 +771,12 @@ void ExecutionPage::highlightLine(int lineNumber)
         if (i == idx) {
             item->setBackground(QColor(86,212,78,28));
             item->setForeground(QColor("#00AA00"));
-            item->setFont(QFont("IBM Plex Mono",10,QFont::Bold));
+            item->setFont(QFont("Consolas",10,QFont::Bold));
             m_rawList->scrollToItem(item);
         } else {
             item->setBackground(QColor(0,0,0,0));
             item->setForeground(QColor(200,212,240,178));
-            item->setFont(QFont("IBM Plex Mono",10));
+            item->setFont(QFont("Consolas",10));
         }
     }
 }

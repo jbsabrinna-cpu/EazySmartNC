@@ -1481,6 +1481,10 @@ void main(){
     // la plus proche de celle du point. Le bord de couleur suit alors la
     // forme réelle (cercle, chanfrein) au lieu de faire des marches de case.
     int tNum = texelFetch(uTool, cell, 0).r;
+    // Côtés extérieurs du brut (« jupe ») : sous la coupe, la matière n'a
+    // pas été touchée -> toujours couleur brut. Avant, tout le côté prenait
+    // la couleur de l'outil dès qu'il avait effleuré le bord du dessus.
+    if (vSkirt >= 0.0001) tNum = 0;
     if (top) {
         ivec2 c0 = ivec2(floor(vTC * uRes - 0.5));
         float best = 1e30; int tBest = tNum; bool anyRaw = false;

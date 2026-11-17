@@ -7,6 +7,16 @@
 #include <QVBoxLayout>
 #include <QFileInfo>
 #include "filebrowserpage.h"
+#include "cadview3d.h"
+#include "decoupe3d.h"
+#include <QDoubleSpinBox>
+#include <QLabel>
+#include <QApplication>
+#include <memory>
+#include "cadimporter.h"
+#include <QStackedWidget>
+#include <QButtonGroup>
+#include <QPushButton>
 #include "ui_FileBrowserPage.h"
 
 #include <QDir>
@@ -21,6 +31,7 @@
 #include <QPixmap>
 #include <QScrollBar>
 #include <QStorageInfo>
+#include <QStandardPaths>
 #include <QKeyEvent>
 #include <QClipboard>
 #include <QApplication>
@@ -139,6 +150,28 @@ void FileBrowserPage::buildDirTree()
     rootItem->setExpanded(true);
 
     populateDir(rootItem, m_rootPath);
+
+    // Autres emplacements (comme TNC: / USB sur la commande) : bureau,
+    // documents, téléchargements, puis tous les disques et clés USB.
+    // Leurs sous-dossiers ne sont lus qu'à l'ouverture (rapide).
+    auto lecteur = [this](const QString &libelle, const QString &chemin) {
+        if (chemin.isEmpty() || !QFileInfo(chemin).isDir()) return;
+        auto *it = new QTreeWidgetItem(ui->treeDir);
+        it->setText(0, libelle);
+        it->setData(0, Qt::UserRole, QDir::cleanPath(chemin));
+        it->setIcon(0, iconForDir());
+        auto *vide = new QTreeWidgetItem(it);           // pour la flèche d'ouverture
+        vide->setData(0, Qt::UserRole + 2, true);
+    };
+    lecteur(QString::fromUtf8("BUREAU"), QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
+    lecteur(QString::fromUtf8("DOCUMENTS"), QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation));
+    lecteur(QString::fromUtf8("TÉLÉCHARGEMENTS"), QStandardPaths::writableLocation(QStandardPaths::DownloadLocation));
+    for (const QStorageInfo &v : QStorageInfo::mountedVolumes()) {
+        if (!v.isValid() || !v.isReady()) continue;
+        const QString r = v.rootPath();
+        const QString nom = v.displayName() == r ? QString() : v.displayName();
+        lecteur(QString("%1  %2").arg(r.left(2), nom).trimmed(), r);
+    }
     ui->treeDir->setCurrentItem(rootItem);
 }
 
@@ -185,14 +218,18 @@ void FileBrowserPage::loadFilesForDir(const QString &dirPath)
 
     // Filtres selon le type selectionne
     QStringList filters;
+    if (m_filtreActif && !m_filtreExt.isEmpty()) {
+        for (const QString &e : std::as_const(m_filtreExt)) filters << "*." + e;
+    } else
     switch (m_filterType) {
     case EazyFileType::ENC: filters << "*.enc"; break;
     case EazyFileType::NC:  filters << "*.nc";  break;
-    case EazyFileType::DXF: filters << "*.dxf"; break;
+    case EazyFileType::DXF: filters << "*.dxf" << "*.stp" << "*.step" << "*.igs" << "*.iges"; break;
     case EazyFileType::CNT: filters << "*.cnt"; break;
     case EazyFileType::PNT: filters << "*.pnt"; break;
     default:
-        filters << "*.enc" << "*.nc" << "*.dxf" << "*.cnt" << "*.pnt";
+        filters << "*.enc" << "*.nc" << "*.dxf" << "*.stp" << "*.step"
+                << "*.igs" << "*.iges" << "*.cnt" << "*.pnt";
         break;
     }
 
@@ -244,7 +281,19 @@ void FileBrowserPage::onDirSelectionChanged()
 
 void FileBrowserPage::onDirItemExpanded(QTreeWidgetItem *item)
 {
-    Q_UNUSED(item)
+    // Lecture d'un niveau à la demande (disques, bureau…)
+    if (!item || item->childCount() != 1 || !item->child(0)->data(0, Qt::UserRole + 2).toBool()) return;
+    delete item->takeChild(0);
+    const QFileInfoList entries = QDir(item->data(0, Qt::UserRole).toString()).entryInfoList(
+        QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::IgnoreCase);
+    for (const QFileInfo &fi : entries) {
+        auto *it = new QTreeWidgetItem(item);
+        it->setText(0, fi.fileName().toUpper());
+        it->setData(0, Qt::UserRole, fi.absoluteFilePath());
+        it->setIcon(0, iconForDir());
+        auto *vide = new QTreeWidgetItem(it);
+        vide->setData(0, Qt::UserRole + 2, true);
+    }
 }
 
 // ================================================================
@@ -275,6 +324,7 @@ void FileBrowserPage::onFileDoubleClicked(QTreeWidgetItem *item, int col)
         syncDirTree(path);
         return;
     }
+    if (m_modeChoix) { emit fichierChoisi(path); return; }
 
     if (type == EazyFileType::ENC || type == EazyFileType::CNT || type == EazyFileType::PNT) {
         emit openEncFile(path);
@@ -287,11 +337,56 @@ void FileBrowserPage::onFileDoubleClicked(QTreeWidgetItem *item, int col)
         // export du contour en .cnt ou des positions en .pnt
         auto *dlg = new QDialog(this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
-        dlg->setWindowTitle("Convertisseur DXF — " + QFileInfo(path).fileName());
+        dlg->setWindowTitle("Convertisseur CAO — " + QFileInfo(path).fileName());
         auto *lay = new QVBoxLayout(dlg);
         lay->setContentsMargins(2, 2, 2, 2);
         auto *view = new CadViewWidget(dlg);
-        lay->addWidget(view);
+        const QString ext = QFileInfo(path).suffix().toLower();
+        const bool modele3D = (ext == "stp" || ext == "step" || ext == "igs" || ext == "iges");
+        if (modele3D) {
+            // STEP / IGES : vue 3D ombrée + vue 2D des contours, au choix
+            auto *barre = new QWidget;
+            auto *bl = new QHBoxLayout(barre);
+            bl->setContentsMargins(4, 2, 4, 2);
+            auto *b3d = new QPushButton("Vue 3D");
+            auto *b2d = new QPushButton("Contours 2D");
+            for (QPushButton *b : {b3d, b2d}) { b->setCheckable(true); b->setMinimumWidth(130); }
+            b3d->setChecked(true);
+            auto *grp = new QButtonGroup(barre);
+            grp->addButton(b3d, 0); grp->addButton(b2d, 1);
+            grp->setExclusive(true);
+            bl->addWidget(b3d); bl->addWidget(b2d);
+            bl->addSpacing(30);
+            bl->addWidget(new QLabel(QString::fromUtf8("Passe ébauche")));
+            auto *passe = new QDoubleSpinBox;
+            passe->setRange(0.1, 50.0); passe->setDecimals(2); passe->setValue(2.0);
+            passe->setSuffix(" mm"); passe->setMinimumWidth(110);
+            auto *bCouches = new QPushButton("Couches Z");
+            bCouches->setCheckable(true); bCouches->setMinimumWidth(130);
+            bl->addWidget(passe); bl->addWidget(bCouches);
+            bl->addStretch();
+            lay->addWidget(barre);
+
+            auto *pile = new QStackedWidget;
+            auto *v3d = new CadView3D;
+            pile->addWidget(v3d);    // 0
+            pile->addWidget(view);   // 1
+            lay->addWidget(pile, 1);
+            connect(grp, &QButtonGroup::idClicked, pile, &QStackedWidget::setCurrentIndex);
+            auto doc3d = std::make_shared<CadDocument>(CadImporter::load(path));
+            v3d->setDocument(*doc3d);
+            auto majCouches = [v3d, doc3d, passe, bCouches]() {
+                if (!bCouches->isChecked()) { v3d->setCouches({}); return; }
+                QApplication::setOverrideCursor(Qt::WaitCursor);
+                v3d->setCouches(Decoupe3D::couches(doc3d->mesh, doc3d->bbMax[2],
+                                                   doc3d->bbMin[2], passe->value()));
+                QApplication::restoreOverrideCursor();
+            };
+            connect(bCouches, &QPushButton::toggled, v3d, majCouches);
+            connect(passe, &QDoubleSpinBox::editingFinished, v3d, majCouches);
+        } else {
+            lay->addWidget(view);
+        }
         dlg->resize(1200, 760);
         view->loadFile(path);
         dlg->showMaximized();
@@ -424,8 +519,44 @@ void FileBrowserPage::setFilterType(EazyFileType t)
     loadFilesForDir(m_currentDirPath);
 }
 
+void FileBrowserPage::setModeChoix(bool on)
+{
+    m_modeChoix = on;
+    if (ui->skNewFile) ui->skNewFile->setVisible(!on);      // pas de nouveau .enc ici
+}
+
+void FileBrowserPage::setFiltre(const QStringList &extensions, const QString &libelle)
+{
+    m_filtreExt.clear();
+    for (const QString &e : extensions) m_filtreExt << e.toLower().remove('.');
+    m_filtreLib = libelle;
+    m_filtreActif = !m_filtreExt.isEmpty();
+    majLibelleType();
+    loadFilesForDir(m_currentDirPath);
+}
+
+void FileBrowserPage::majLibelleType()
+{
+    if (!m_filtreExt.isEmpty())
+        ui->skSelectType->setText(m_filtreActif ? QString("TYPE:\n%1").arg(m_filtreLib) : QString("TYPE:\nTOUS"));
+}
+
+void FileBrowserPage::allerA(const QString &dossier)
+{
+    if (dossier.isEmpty() || !QFileInfo(dossier).isDir()) return;
+    const QString d = QDir::cleanPath(QFileInfo(dossier).absoluteFilePath());
+    loadFilesForDir(d);
+    syncDirTree(d);
+}
+
 void FileBrowserPage::onSelectType()
 {
+    if (!m_filtreExt.isEmpty()) {                 // mode choix : tri du besoin <-> tous
+        m_filtreActif = !m_filtreActif;
+        majLibelleType();
+        loadFilesForDir(m_currentDirPath);
+        return;
+    }
     // Cycle entre les types de filtre
     switch (m_filterType) {
     case EazyFileType::Unknown: m_filterType = EazyFileType::ENC; break;
@@ -531,6 +662,9 @@ EazyFileType FileBrowserPage::detectFileType(const QString &fileName) const
     if (lower.endsWith(".enc")) return EazyFileType::ENC;
     if (lower.endsWith(".nc"))  return EazyFileType::NC;
     if (lower.endsWith(".dxf")) return EazyFileType::DXF;
+    // STEP / IGES : même convertisseur que le DXF (lecture OpenCASCADE)
+    if (lower.endsWith(".stp") || lower.endsWith(".step")
+        || lower.endsWith(".igs") || lower.endsWith(".iges")) return EazyFileType::DXF;
     if (lower.endsWith(".cnt")) return EazyFileType::CNT;
     if (lower.endsWith(".pnt")) return EazyFileType::PNT;
     return EazyFileType::Unknown;

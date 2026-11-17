@@ -42,6 +42,14 @@ public:
     // cycle du softkey "SELECT. TYPE". Utilisé par les dialogues de
     // sélection de fichier .pnt (éditeur de points).
     void    setFilterType(EazyFileType t);
+    // Mode « choix de fichier » (fenêtre EazyFileDialog) : OUVRIR /
+    // double-clic sur un fichier émet fichierChoisi au lieu de l'ouvrir
+    void    setModeChoix(bool on);
+    // Tri sur une liste d'extensions (ex. {"step","stp"}) ; SELECT. TYPE
+    // bascule entre ce tri et tous les fichiers
+    void    setFiltre(const QStringList &extensions, const QString &libelle);
+    void    allerA(const QString &dossier);
+    QString dossierCourant() const { return m_currentDirPath; }
 
     // Acces depuis MainWindow
     QString selectedFilePath() const;
@@ -52,6 +60,7 @@ signals:
     void openNcFile(const QString &filePath);
     void navigateTo(const QString &page);
     void fileSelected(const QString &path, EazyFileType type);
+    void fichierChoisi(const QString &path);
 
 public slots:
     void onOpen();
@@ -82,6 +91,11 @@ private:
     QString      m_currentDirPath;
     QTimer      *m_clockTimer   = nullptr;
     EazyFileType m_filterType   = EazyFileType::Unknown; // Unknown = tous
+    bool         m_modeChoix    = false;
+    QStringList  m_filtreExt;                             // tri du besoin (mode choix)
+    QString      m_filtreLib;
+    bool         m_filtreActif  = false;
+    void         majLibelleType();
 
     // Construction UI
     void buildDirTree();

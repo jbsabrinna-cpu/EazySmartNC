@@ -7,6 +7,8 @@
 #include <QWidget>
 #include <climits>
 #include <QListWidget>
+#include <QElapsedTimer>
+#include <QDebug>
 #include <QListWidgetItem>
 #include <QCheckBox>
 #include <QLabel>
@@ -136,6 +138,30 @@ static QVector<GCodeLine> inlineSubFiles(const QVector<GCodeLine> &lines,
     return out;
 }
 
+// ── Couleurs du G-code décidées à l'affichage (lignes visibles seulement) ──
+//  Évite de colorer 50 000+ lignes une par une au chargement.
+#include <QStyledItemDelegate>
+class GcodeCouleurDelegate : public QStyledItemDelegate
+{
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+protected:
+    void initStyleOption(QStyleOptionViewItem *opt, const QModelIndex &idx) const override
+    {
+        QStyledItemDelegate::initStyleOption(opt, idx);
+        const QString t = idx.data().toString().mid(7).trimmed();   // après le n° de ligne
+        QColor c(0x11,0x11,0x22);                                   // G1 : noir
+        if (t.startsWith('(')) { c = QColor(0x60,0x80,0x40); opt->font.setItalic(true); }
+        else if (t.startsWith("G0 ") || t == "G0" || t.startsWith("G00")) c = QColor(0xcc,0x22,0x22);
+        else if (t.startsWith("G2") || t.startsWith("G3") || t.startsWith("G02") || t.startsWith("G03"))
+            c = QColor(0x11,0x66,0xcc);
+        else if (t.startsWith('T') || t.startsWith("G43")) { c = QColor(0xcc,0x66,0x00); opt->font.setBold(true); }
+        else if (t.startsWith('M') || t.startsWith('S')) c = QColor(0x88,0x22,0xaa);
+        else if (t.startsWith('G') && !t.startsWith("G1 ") && !t.startsWith("G01")) c = QColor(0x44,0x55,0x66);
+        opt->palette.setColor(QPalette::Text, c);
+    }
+};
+
 class SimulationPage : public QWidget
 {
     Q_OBJECT
@@ -173,7 +199,9 @@ public:
     // ── Chargement .nc ──────────────────────────────────────────
     void loadNcFile(const QString &path)
     {
+        QElapsedTimer chrono; chrono.start();
         QVector<GCodeLine> lines = NcFileParser::parse(path);
+        qDebug() << "[SIM] lecture .nc :" << lines.size() << "lignes en" << chrono.elapsed() << "ms";
         if (lines.isEmpty()) return;
         // Inliner depuis le dossier du .nc
         m_ncDir = QFileInfo(path).absolutePath();
@@ -182,8 +210,10 @@ public:
         m_lastBlocks.clear();
         StockData stock = inferStock(lines);
         populateGcodeList(lines);
+        QElapsedTimer c2; c2.start();
         loadIntoView(stock, lines,
                      QString("Fichier NC  |  %1 lignes").arg(lines.size()));
+        qDebug() << "[SIM] mise en vue 3D en" << c2.elapsed() << "ms, total" << chrono.elapsed() << "ms";
     }
 
     // Permet de définir le dossier où chercher les sous-fichiers (depuis mainwindow)
@@ -464,8 +494,15 @@ private:
     // ── Peupler la liste avec les lignes G-code ──────────────────
     void populateGcodeList(const QVector<GCodeLine> &gcode)
     {
-        m_gcodeList->clear();
-        m_highlightedRow=-1;
+        // Gros programmes (50 000+ lignes) : toutes les lignes ajoutées
+        // d'un coup ; les couleurs sont faites à l'affichage (délégué).
+        QElapsedTimer chrono; chrono.start();
+        if (!m_gcodeList->itemDelegate() || !dynamic_cast<GcodeCouleurDelegate*>(m_gcodeList->itemDelegate()))
+            m_gcodeList->setItemDelegate(new GcodeCouleurDelegate(m_gcodeList));
+        QFont f("Consolas",10); f.setFixedPitch(true);
+        m_gcodeList->setFont(f);
+        QStringList lignes;
+        lignes.reserve(gcode.size());
         for(int i=0;i<gcode.size();i++){
             const GCodeLine &gl=gcode[i];
             QString text=gl.code.trimmed();
@@ -474,41 +511,14 @@ private:
                 else text+="  ( "+gl.comment+" )";
             }
             if(text.isEmpty()) text=" ";
-
-            auto *item=new QListWidgetItem(QString("%1").arg(i+1,5)+"  "+text);
-
-            // ── Syntaxe colorée style éditeur professionnel ──────
-            QFont f("Consolas",10); f.setFixedPitch(true);
-            item->setFont(f);
-
-            if(gl.type==GCodeLine::Comment||gl.type==GCodeLine::Blank){
-                // Commentaires : vert olive
-                item->setForeground(QColor(0x60,0x80,0x40));
-                QFont fi=f; fi.setItalic(true); item->setFont(fi);
-            } else if(gl.type==GCodeLine::Rapid){
-                // G0 rapides : rouge
-                item->setForeground(QColor(0xcc,0x22,0x22));
-            } else if(gl.type==GCodeLine::Arc){
-                // G2/G3 arcs : bleu
-                item->setForeground(QColor(0x11,0x66,0xcc));
-            } else if(gl.type==GCodeLine::ToolCall){
-                // Appel outil : orange gras
-                item->setForeground(QColor(0xcc,0x66,0x00));
-                QFont fb=f; fb.setBold(true); item->setFont(fb);
-            } else if(gl.type==GCodeLine::Spindle||gl.type==GCodeLine::MFunction){
-                // M-fonctions : violet
-                item->setForeground(QColor(0x88,0x22,0xaa));
-            } else if(gl.type==GCodeLine::Other){
-                // Autres (G90, G91...) : gris foncé
-                item->setForeground(QColor(0x44,0x55,0x66));
-            } else {
-                // G1 coupes : noir
-                item->setForeground(QColor(0x11,0x11,0x22));
-            }
-
-            item->setBackground(QColor(0xff,0xff,0xff));  // fond blanc
-            m_gcodeList->addItem(item);
+            lignes << QString("%1").arg(i+1,5)+"  "+text;
         }
+        m_gcodeList->setUpdatesEnabled(false);
+        m_gcodeList->clear();
+        m_highlightedRow=-1;
+        m_gcodeList->addItems(lignes);
+        m_gcodeList->setUpdatesEnabled(true);
+        qDebug() << "[SIM] liste G-code :" << gcode.size() << "lignes en" << chrono.elapsed() << "ms";
     }
 
     // ── Surligner la ligne courante et scroller ──────────────────

@@ -49,6 +49,7 @@ static QIcon elemIcon(int id, int kind, double d);
 #include <QShortcut>
 #include <QGridLayout>
 #include <cmath>
+#include "eazyfiledialog.h"
 
 // ═══════════════════════════════════════════════════════════════
 //  CadGraphicsView
@@ -1320,8 +1321,8 @@ void CadViewWidget::onMeasure(QPointF p1, QPointF p2)
 
 void CadViewWidget::onOpenFile()
 {
-    QString path=QFileDialog::getOpenFileName(
-        this,"Ouvrir fichier CAD",QString(),CadImporter::fileFilter());
+    QString path = EazyFileDialog::ouvrir(this, "Ouvrir fichier CAO", m_doc.filePath,
+                                          {"dxf", "step", "stp", "iges", "igs"}, "CAO");
     if(!path.isEmpty()) loadFile(path);
 }
 
@@ -1425,8 +1426,8 @@ void CadViewWidget::exportSelectedToCnt()
         return;
     }
     if(nOn>0){
-        QString path = QFileDialog::getSaveFileName(this, "Exporter contour en .cnt",
-                                                    "C:/cncm/ncfiles", "Contours EazyNC (*.cnt)");
+        QString path = EazyFileDialog::enregistrer(this, "Exporter contour en .cnt", m_doc.filePath, ".cnt",
+                                                   QFileInfo(m_doc.filePath).completeBaseName());
         if(path.isEmpty()) return;
         if(!path.endsWith(".cnt",Qt::CaseInsensitive)) path += ".cnt";
         CadContour tmp;
@@ -1454,9 +1455,8 @@ void CadViewWidget::exportSelectedToCnt()
         return;
     }
 
-    QString path = QFileDialog::getSaveFileName(
-        this, "Exporter contour en .cnt",
-        QString(), "Contours EazyNC (*.cnt)");
+    QString path = EazyFileDialog::enregistrer(this, "Exporter contour en .cnt", m_doc.filePath, ".cnt",
+                                               QFileInfo(m_doc.filePath).completeBaseName());
     if(path.isEmpty()) return;
     if(!path.endsWith(".cnt",Qt::CaseInsensitive)) path += ".cnt";
 
@@ -1515,8 +1515,8 @@ void CadViewWidget::exportSelectedToPnt()
         if (!dup) uniq << p;
     }
 
-    QString path = QFileDialog::getSaveFileName(this, "Exporter positions en .pnt",
-                                                "C:/cncm/ncfiles", "Positions EazyNC (*.pnt)");
+    QString path = EazyFileDialog::enregistrer(this, "Exporter positions en .pnt", m_doc.filePath, ".pnt",
+                                               QFileInfo(m_doc.filePath).completeBaseName());
     if (path.isEmpty()) return;
     if (!path.endsWith(".pnt", Qt::CaseInsensitive)) path += ".pnt";
 

@@ -1,3 +1,6 @@
+#include <QStackedWidget>
+#include <QScreen>
+#include <QTimer>
 #include "mainwindow.h"
 #include "tnc620theme.h"
 #include "ui_EazyNC_MainWindow_v4.h"
@@ -117,6 +120,23 @@ MainWindow::MainWindow(QWidget *parent)
     // showMaximized respecte la barre des tâches Windows
     // showFullScreen() la cachait complètement
     showMaximized();
+    // Les pages sont créées APRÈS ce showMaximized() : leur taille
+    // minimale peut agrandir la fenêtre au-delà de l'écran et Windows
+    // la sort alors du plein écran. On re-maximise une fois tout construit,
+    // et on note les tailles dans la sortie pour diagnostic.
+    QTimer::singleShot(300, this, [this]{
+        const QRect ecran = screen() ? screen()->availableGeometry() : QRect();
+        qDebug() << "[Fenetre] ecran dispo" << ecran.size()
+                 << "taille mini" << minimumSizeHint() << "maximisee" << isMaximized();
+        for (QStackedWidget *sw : findChildren<QStackedWidget*>())
+            for (int i = 0; i < sw->count(); ++i)
+                if (sw->widget(i)->minimumSizeHint().height() > 700)
+                    qDebug() << "[Fenetre]  page" << sw->objectName() << i
+                             << sw->widget(i)->metaObject()->className()
+                             << sw->widget(i)->objectName() << sw->widget(i)->minimumSizeHint();
+        showNormal();
+        showMaximized();
+    });
 
     // ── PAGES INJECTÉES ──────────────────────────────────────
     CrashHandler::log("new ProgrammePage...");
@@ -132,7 +152,9 @@ MainWindow::MainWindow(QWidget *parent)
     }
 
     // ── Page Exécution ────────────────────────────────────────
+    CrashHandler::log("new ExecutionPage...");
     m_executionPage = new ExecutionPage(this);
+    CrashHandler::log("ExecutionPage OK");
     {
         QVBoxLayout *lay = new QVBoxLayout(ui->pageExecution);
         lay->setContentsMargins(0,0,0,0);
@@ -179,11 +201,18 @@ MainWindow::MainWindow(QWidget *parent)
     }
     connect(m_fileBrowserPage, &FileBrowserPage::openEncFile,
             this, [this](const QString &path){
-                // NOTE : le chargement d'un .enc directement dans la
-                // page Simulation (loadEncForSim) n'est pas encore
-                // implemente dans SimulationPage. En attendant, on
-                // charge le .enc dans la page Programme dans tous les
-                // cas. Chantier a part : chargement par page active.
+                // Chargement selon la page d'où on vient :
+                //  Simulation / Exécution + .enc : on prend directement le
+                //  .nc déjà généré à côté (pas de recalcul). S'il n'existe pas,
+                //  le .enc passe par la page Programme qui génère le G-code.
+                const QFileInfo fi(path);
+                const bool estEnc = fi.suffix().compare("enc", Qt::CaseInsensitive) == 0;
+                const QString nc = fi.absolutePath() + "/" + fi.completeBaseName() + ".nc";
+                if (estEnc && (m_previousPage == 4 || m_previousPage == 2) && QFileInfo::exists(nc)) {
+                    if (m_previousPage == 4 && m_simPage) m_simPage->loadNcFile(nc);
+                    else m_executionPage->loadRawFile(nc);
+                    return;
+                }
                 m_programmePage->loadEncFile(path);
             });
     connect(m_fileBrowserPage, &FileBrowserPage::openNcFile,
@@ -197,9 +226,10 @@ MainWindow::MainWindow(QWidget *parent)
             });
     connect(m_fileBrowserPage, &FileBrowserPage::navigateTo,
             this, [this](const QString &page){
-                // Si on vient de la simulation, y retourner apres chargement
-                if (m_previousPage == 4) {
-                    switchPage(4);
+                // Retour à la page d'où on a ouvert le gestionnaire
+                // (Simulation ou Exécution) ; sinon selon le type de fichier
+                if (m_previousPage == 4 || m_previousPage == 2) {
+                    switchPage(m_previousPage);
                     return;
                 }
                 if (page == "PROGRAMME") switchPage(1);
@@ -224,6 +254,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_simPage, &SimulationPage::loadEncRequested, this, [this](){
         // Ouvrir le gestionnaire de fichiers filtre sur .enc
         m_fileBrowserPage->setProperty("filterHint","enc");
+        m_previousPage = m_currentPage;     // le programme sera chargé DANS la simulation
         switchPage(5);
     });
     connect(m_simPage, &SimulationPage::cycleStartRequested, this, [this](){
@@ -1442,6 +1473,7 @@ void MainWindow::setupProgSoftkeys()
     auto *pgCont = makeSKPage(stack, {
                                       {":/unit/cycle de contournage.png", "Contournage"},
                                       {":/unit/fraisage de poche contour.png", "Poche contour"},
+                                      {":/unit/fraisage de poche contour.png", "Usinage 3D"},
                                       }, btns, m_programmePage);
     m_skIdx_contour = stack->indexOf(pgCont);
     addBack(pgCont, true);
@@ -1452,6 +1484,10 @@ void MainWindow::setupProgSoftkeys()
     connect(btns[1], &QToolButton::clicked, this, [this]{
         m_navHistory.clear(); showProgPage(0);
         m_programmePage->insertPocheContour();
+    });
+    connect(btns[2], &QToolButton::clicked, this, [this]{
+        m_navHistory.clear(); showProgPage(0);
+        m_programmePage->insertUsinage3D();
     });
 
     // ── Page PERÇAGE (famille perçage) ────────────────────────

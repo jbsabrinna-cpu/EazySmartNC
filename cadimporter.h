@@ -102,6 +102,17 @@ struct CadDocument
     QVector<CadContour> contours;
     QRectF              extents;   // boîte englobante de tous les contours
 
+    // ── Modèle 3D (STEP / IGES uniquement) ──────────────────────
+    //  mesh  : triangles, 6 floats par sommet (x y z nx ny nz)
+    //  meshFace : n° de face B-rep de chaque triangle (sélection future)
+    //  edges3d : segments des arêtes B-rep, 3 floats par point (paires)
+    QVector<float>      mesh;
+    QVector<int>        meshFace;
+    QVector<float>      edges3d;
+    QVector<float>      centres3d;   // centres des arcs / cercles (x y z), pour l'origine
+    float               bbMin[3] = {0, 0, 0};
+    float               bbMax[3] = {0, 0, 0};
+
     // Accès pratiques
     const CadLayer* layerByName(const QString& name) const;
     QVector<const CadContour*> contoursInLayer(const QString& layerName) const;

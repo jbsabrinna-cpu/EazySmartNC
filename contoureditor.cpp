@@ -20,6 +20,7 @@
 #include <QTimer>
 #include <QtMath>
 #include <cmath>
+#include "eazyfiledialog.h"
 
 // ═══════════════════════════════════════════════════════════════
 //  ContourEditorView
@@ -389,9 +390,8 @@ void ContourEditor::buildToolbar()
     m_actSave = m_toolbar->addAction("💾 Sauvegarder");
     m_actSave->setToolTip("Sauvegarder le contour (.cnt)");
     connect(m_actSave, &QAction::triggered, this, [this]{
-        QString p = QFileDialog::getSaveFileName(this,
-                                                 "Sauvegarder le contour", m_contour.filePath,
-                                                 "Contours EazyNC (*.cnt);;Tous (*)");
+        QString p = EazyFileDialog::enregistrer(this, "Sauvegarder le contour", m_contour.filePath, ".cnt",
+                                                m_contour.filePath);
         if(!p.isEmpty()) save(p);
     });
 

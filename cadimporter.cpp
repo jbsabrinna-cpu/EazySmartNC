@@ -27,6 +27,11 @@
 #  include <gp_Circ.hxx>
 #  include <gp_Lin.hxx>
 #  include <GCPnts_UniformAbscissa.hxx>
+#  include <BRepMesh_IncrementalMesh.hxx>
+#  include <Poly_Triangulation.hxx>
+#  include <TopLoc_Location.hxx>
+#  include <Bnd_Box.hxx>
+#  include <BRepBndLib.hxx>
 #endif
 
 #include "cadimporter.h"
@@ -874,6 +879,95 @@ CadDocument CadImporter::occLoad(const QString& filePath, const QString& format)
     }
 
     if(shape.IsNull()){ doc.error="Shape nulle après lecture"; return doc; }
+
+    // ── Maillage pour la vue 3D ombrée ────────────────────────
+    {
+        Bnd_Box bb; BRepBndLib::Add(shape, bb);
+        if (!bb.IsVoid()) {
+            double x0,y0,z0,x1,y1,z1; bb.Get(x0,y0,z0,x1,y1,z1);
+            doc.bbMin[0]=float(x0); doc.bbMin[1]=float(y0); doc.bbMin[2]=float(z0);
+            doc.bbMax[0]=float(x1); doc.bbMax[1]=float(y1); doc.bbMax[2]=float(z1);
+            const double diag = std::sqrt((x1-x0)*(x1-x0)+(y1-y0)*(y1-y0)+(z1-z0)*(z1-z0));
+            BRepMesh_IncrementalMesh mesher(shape, qMax(0.005, diag * 0.0003), Standard_False, 0.12, Standard_True);
+        }
+        int faceNo = 0;
+        for (TopExp_Explorer fx(shape, TopAbs_FACE); fx.More(); fx.Next(), ++faceNo) {
+            const TopoDS_Face face = TopoDS::Face(fx.Current());
+            TopLoc_Location loc;
+            Handle(Poly_Triangulation) tri = BRep_Tool::Triangulation(face, loc);
+            if (tri.IsNull()) continue;
+            const gp_Trsf tr = loc.Transformation();
+            const bool inv = (face.Orientation() == TopAbs_REVERSED);
+            // Normales lissées : moyenne des triangles autour de chaque
+            // sommet, À L'INTÉRIEUR d'une face (les arêtes vives entre
+            // faces restent nettes). Évite l'effet « tissage » des galbes.
+            const int nbN = tri->NbNodes();
+            QVector<gp_Pnt> P(nbN + 1);
+            QVector<double> N((nbN + 1) * 3, 0.0);
+            for (int i = 1; i <= nbN; ++i) P[i] = tri->Node(i).Transformed(tr);
+            struct T3 { int a, b, c; };
+            QVector<T3> tris; tris.reserve(tri->NbTriangles());
+            for (int t = 1; t <= tri->NbTriangles(); ++t) {
+                int n1, n2, n3;
+                tri->Triangle(t).Get(n1, n2, n3);
+                if (inv) std::swap(n2, n3);
+                const gp_Pnt &a = P[n1], &b = P[n2], &c = P[n3];
+                const double ux=b.X()-a.X(), uy=b.Y()-a.Y(), uz=b.Z()-a.Z();
+                const double vx=c.X()-a.X(), vy=c.Y()-a.Y(), vz=c.Z()-a.Z();
+                const double nx=uy*vz-uz*vy, ny=uz*vx-ux*vz, nz=ux*vy-uy*vx;   // pondéré par l'aire
+                if (nx*nx + ny*ny + nz*nz < 1e-24) continue;
+                for (int k : {n1, n2, n3}) { N[k*3] += nx; N[k*3+1] += ny; N[k*3+2] += nz; }
+                tris.append({n1, n2, n3});
+            }
+            for (const T3 &t3 : tris) {
+                for (int k : {t3.a, t3.b, t3.c}) {
+                    double nx = N[k*3], ny = N[k*3+1], nz = N[k*3+2];
+                    const double ln = std::sqrt(nx*nx + ny*ny + nz*nz);
+                    if (ln > 1e-12) { nx /= ln; ny /= ln; nz /= ln; }
+                    doc.mesh << float(P[k].X()) << float(P[k].Y()) << float(P[k].Z())
+                             << float(nx) << float(ny) << float(nz);
+                }
+                doc.meshFace << faceNo;
+            }
+        }
+        // Arêtes B-rep (traits noirs sur la vue 3D)
+        for (TopExp_Explorer ex(shape, TopAbs_EDGE); ex.More(); ex.Next()) {
+            const TopoDS_Edge e = TopoDS::Edge(ex.Current());
+            if (BRep_Tool::Degenerated(e)) continue;
+            BRepAdaptor_Curve c(e);
+            const double a = c.FirstParameter(), b = c.LastParameter();
+            const int n = (c.GetType() == GeomAbs_Line) ? 1 : 32;
+            if (c.GetType() == GeomAbs_Circle) {               // centre des rayons / cercles
+                const gp_Pnt ct = c.Circle().Location();
+                bool deja = false;
+                for (int k = 0; k + 2 < doc.centres3d.size(); k += 3)
+                    if (std::fabs(doc.centres3d[k] - ct.X()) < 1e-3 && std::fabs(doc.centres3d[k + 1] - ct.Y()) < 1e-3
+                        && std::fabs(doc.centres3d[k + 2] - ct.Z()) < 1e-3) { deja = true; break; }
+                if (!deja) doc.centres3d << float(ct.X()) << float(ct.Y()) << float(ct.Z());
+            }
+            gp_Pnt prev = c.Value(a);
+            for (int i = 1; i <= n; ++i) {
+                gp_Pnt cur = c.Value(a + (b - a) * i / n);
+                doc.edges3d << float(prev.X()) << float(prev.Y()) << float(prev.Z())
+                            << float(cur.X())  << float(cur.Y())  << float(cur.Z());
+                prev = cur;
+            }
+        }
+        // Encombrement EXACT depuis le maillage : la boîte d'OpenCASCADE
+        // (BRepBndLib) est gonflée sur les surfaces courbes (pôles des
+        // B-splines + tolérance) -> ~1 mm de trop sur le dessus du chevalet.
+        if (doc.mesh.size() >= 6) {
+            for (int k = 0; k < 3; ++k) { doc.bbMin[k] = 1e30f; doc.bbMax[k] = -1e30f; }
+            for (int i = 0; i + 5 < doc.mesh.size(); i += 6)
+                for (int k = 0; k < 3; ++k) {
+                    doc.bbMin[k] = qMin(doc.bbMin[k], doc.mesh[i + k]);
+                    doc.bbMax[k] = qMax(doc.bbMax[k], doc.mesh[i + k]);
+                }
+        }
+        qDebug() << "[CAD] maillage :" << doc.meshFace.size() << "triangles,"
+                 << doc.edges3d.size() / 6 << "segments d'arêtes"
+                 << "encombrement Z" << doc.bbMin[2] << doc.bbMax[2];
+    }
 
     // Ajouter calque par défaut
     CadLayer defLayer; defLayer.name="0"; defLayer.color=Qt::cyan;

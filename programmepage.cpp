@@ -1,3 +1,6 @@
+#include "Ncfileparser.h"
+#include "cycles/usinage3dgenerator.h"
+#include "blkmodele3d.h"
 #include <algorithm>
 #pragma execution_character_set("utf-8")
 #include "programmepage.h"
@@ -14,7 +17,8 @@
 #include "contourgenerator.h"
 #include "pochecontourgenerator.h"     // architecture Strategy : cycle contournage
 #include "percagegenerator.h"     // architecture Strategy : cycle percage
-#include "helpanimwidget.h"         // dessins d'aide animés
+#include "helpanimwidget.h"
+#include "usinage3deditor.h"         // dessins d'aide animés
 #include "fraisagetrougenerator.h" // architecture Strategy : cycle fraisage de trou
 
 #include <QHBoxLayout>
@@ -48,6 +52,7 @@
 #include <QMutex>
 #include <QAtomicInt>
 #include "crashhandler.h"
+#include "eazyfiledialog.h"
 
 // ═══════════════════════════════════════════════════════════════
 //  Sérialisation JSON PocheData / TrouData
@@ -648,6 +653,7 @@ static QVector<GCodeLine> buildGCode(const QVector<BlockData> &blocks,
     double  gAvanceLiaison  = 0.0;
     bool    gM25RetourOrigine = true;
     // ── Dimensions du brut BLK FORM (utilisees par l'ebauche contour) ──
+    QJsonObject gModele3D;                       // modèle 3D + origine figée du BLK FORM
     bool    gBlkValid       = false;
     double  gBlkXmin        = 0, gBlkXmax = 0;
     double  gBlkYmin        = 0, gBlkYmax = 0;
@@ -660,6 +666,7 @@ static QVector<GCodeLine> buildGCode(const QVector<BlockData> &blocks,
             gZApproche      = b.data["zApproche"].toDouble(2.0);
             gAvanceLiaison  = b.data["avanceLiaison"].toDouble(0.0);
             gM25RetourOrigine = b.data["m25RetourOrigine"].toBool(true);
+            gModele3D       = b.data["modele3d"].toObject();
             gBlkXmin        = b.data["xMinus"].toDouble(0);
             gBlkXmax        = b.data["xPlus"].toDouble(0);
             gBlkYmin        = b.data["yMinus"].toDouble(0);
@@ -824,6 +831,23 @@ static QVector<GCodeLine> buildGCode(const QVector<BlockData> &blocks,
             if (ftd.profondeur <= 0) { skipNote(b, "profondeur nulle"); continue; }
             FraisageTrouGenerator gen(ftd);
             lines << gen.generate(b.id);
+        } else if (b.type == BlockType::Usinage3D) {
+            if (b.data["fichier"].toString().isEmpty() && gModele3D["fichier"].toString().isEmpty()) { skipNote(b, "aucun fichier 3D choisi"); continue; }
+            // Origine figée dans le BLK FORM : elle s'impose au bloc
+            QJsonObject dd = b.data;
+            if (!gModele3D["verrou"].toBool() || gModele3D["fichier"].toString().isEmpty()) {
+                skipNote(b, "origine non figee dans le BLK FORM (Modele 3D)"); continue;
+            }
+            {
+                dd["fichier"] = gModele3D["fichier"];
+                for (const char *k : {"orient", "origMode", "origPoint", "origRef3", "origPos", "origRef", "origZ", "brutMode", "brutSx", "brutSy",
+                                      "brutZp", "brutZm", "brutL", "brutW", "brutH", "brutZal"})
+                    if (gModele3D.contains(QString::fromLatin1(k)))
+                    dd[QString::fromLatin1(k)] = gModele3D[QString::fromLatin1(k)];
+            }
+            Usinage3DGenerator gen(dd, gZApproche, gZSautBride);
+            lines << gen.generate(b.id);
+            continue;
         } else if (b.type == BlockType::Contour || b.type == BlockType::PocheContour) {
             if (b.data.isEmpty()) { skipNote(b, "aucun contour defini"); continue; }
             ContourData cd = contourFromJson(b.data);
@@ -1430,7 +1454,36 @@ void BlkFormWidget::setupUi()
         );
     m_tabs->addTab(buildDimensionsTab(), "📐  Dimensions");
     m_tabs->addTab(buildParamsTab(),     "⚙️  Paramètres");
+    // Onglet Modèle 3D : STEP + origine + brut, puis origine FIGÉE
+    m_modele = new BlkModele3DWidget;
+    {
+        auto *defil = new QScrollArea;
+        defil->setWidgetResizable(true);
+        defil->setFrameShape(QFrame::NoFrame);
+        defil->setWidget(m_modele);
+        m_tabs->addTab(defil, "🧊  Modèle 3D");
+    }
+    connect(m_modele, &BlkModele3DWidget::dataChanged, this, &BlkFormWidget::dataChanged);
+    connect(m_modele, &BlkModele3DWidget::brutCalcule, this,
+            [this](double xm, double xp, double ym, double yp, double zm, double zp){
+                setValues(xm, xp, ym, yp, zm, zp);
+                emit dataChanged();
+            });
+    connect(m_modele, &BlkModele3DWidget::verrouChange, this, [this](bool v){
+        // origine figée : les dimensions du brut ne se tapent plus à la main
+        for (QDoubleSpinBox *s : {m_xMinus, m_xPlus, m_yMinus, m_yPlus, m_zMinus, m_zPlus})
+            if (s) s->setEnabled(!v);
+    });
     mainLay->addWidget(m_tabs);
+}
+
+QJsonObject BlkFormWidget::modele3D() const { return m_modele ? m_modele->donnees() : QJsonObject(); }
+void BlkFormWidget::setModele3D(const QJsonObject &d)
+{
+    if (!m_modele) return;
+    m_modele->charger(d);
+    for (QDoubleSpinBox *s : {m_xMinus, m_xPlus, m_yMinus, m_yPlus, m_zMinus, m_zPlus})
+        if (s) s->setEnabled(!m_modele->verrouille());
 }
 
 QWidget* BlkFormWidget::buildDimensionsTab()
@@ -1876,7 +1929,15 @@ void ProgrammePage::setupUi()
     // Sauvegarde automatique du bloc BlkForm lors d\'un changement
     connect(m_blkForm, &BlkFormWidget::dataChanged,
             this, &ProgrammePage::saveCurrentBlock);
-    m_rightStack->addWidget(m_blkForm);  // index 0
+    {   // BLK FORM dans une zone qui défile (sinon 906 px de haut mini :
+        // la fenêtre dépassait l'écran et sortait du plein écran)
+        auto *defilBlk = new QScrollArea;
+        defilBlk->setWidget(m_blkForm);
+        defilBlk->setWidgetResizable(true);
+        defilBlk->setFrameShape(QFrame::NoFrame);
+        defilBlk->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        m_rightStack->addWidget(defilBlk);  // index 0
+    }
     // Éditeur dans une zone qui défile : avec les grands caractères,
     // les pages les plus longues (PM poche, PM fraisage trou) ne doivent
     // pas agrandir la fenêtre au-delà de l'écran (softkeys coupées).
@@ -1887,6 +1948,15 @@ void ProgrammePage::setupUi()
         defil->setFrameShape(QFrame::NoFrame);
         defil->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         m_rightStack->addWidget(defil);  // index 1
+    }
+    {   // Usinage 3D : sa propre page de saisie
+        m_u3d = new Usinage3DEditor;
+        auto *defil3d = new QScrollArea;
+        defil3d->setWidget(m_u3d);
+        defil3d->setWidgetResizable(true);
+        defil3d->setFrameShape(QFrame::NoFrame);
+        defil3d->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        m_rightStack->addWidget(defil3d);  // index 2
     }
     m_rightStack->setCurrentIndex(0);
     // Signal UnitEditor → ouvrir l'éditeur de contour
@@ -2015,9 +2085,7 @@ void ProgrammePage::setupUi()
             return;
         }
         QString dir = m_currentPath.isEmpty() ? QDir::homePath() : QFileInfo(m_currentPath).absolutePath();
-        QString path = QFileDialog::getOpenFileName(this,
-                                                    "Ouvrir contour .cnt", dir,
-                                                    "Contours EazyNC (*.cnt);;Tous (*)");
+        QString path = EazyFileDialog::ouvrir(this, "Ouvrir contour .cnt", dir, {"cnt"}, "CNT");
         if (path.isEmpty()) return;
         QString name = QFileInfo(path).baseName();
         m_editor->blockSignals(true);
@@ -2141,10 +2209,8 @@ void ProgrammePage::setupUi()
     // Signal DXF/STEP/IGES → ouvrir fichier + importer dans le ContourEditor actif
     connect(m_editor, &UnitEditor::openDxfImport, this, [this]{
         QString dir2 = m_currentPath.isEmpty() ? QDir::homePath() : QFileInfo(m_currentPath).absolutePath();
-        QString path = QFileDialog::getOpenFileName(this,
-                                                    "Importer fichier CAD", dir2,
-                                                    "Fichiers CAD (*.dxf *.DXF *.step *.stp *.iges *.igs)"
-                                                    ";;DXF (*.dxf);;STEP (*.step *.stp);;IGES (*.iges *.igs);;Tous (*)");
+        QString path = EazyFileDialog::ouvrir(this, "Importer fichier CAO", dir2,
+                                              {"dxf", "step", "stp", "iges", "igs"}, "CAO");
         if (path.isEmpty()) return;
         importCadFile(path);
     });
@@ -2153,6 +2219,18 @@ void ProgrammePage::setupUi()
     m_saveTimer->setInterval(30);
     connect(m_saveTimer, &QTimer::timeout, this, &ProgrammePage::saveCurrentBlock);
     connect(m_editor, &UnitEditor::dataChanged,   this, [this]{ m_saveTimer->start(); });
+    connect(m_u3d, &Usinage3DEditor::dataChanged, this, [this]{ m_saveTimer->start(); });
+    connect(m_u3d, &Usinage3DEditor::helpRequested, this, &ProgrammePage::showHelp);
+    // Usinage 3D → remplit le brut du BLK FORM (premier bloc BlkForm)
+    connect(m_u3d, &Usinage3DEditor::remplirBlkForm, this, [this](const QJsonObject &lim){
+        for (int i = 0; i < m_blocks.size(); ++i) {
+            if (m_blocks[i].type != BlockType::BlkForm) continue;
+            for (auto it = lim.begin(); it != lim.end(); ++it) m_blocks[i].data[it.key()] = it.value();
+            if (auto *item = m_list->item(i)) item->setText(labelForBlock(m_blocks[i], i + 1));
+            qDebug() << "[Usinage3D] BLK FORM rempli :" << lim;
+            break;
+        }
+    });
     connect(m_editor, &UnitEditor::saveRequested, this, [this]{ m_saveTimer->start(); });
     // helpRequested → afficher le dessin d'aide
     connect(m_editor, &UnitEditor::helpRequested, this, &ProgrammePage::showHelp);
@@ -2437,6 +2515,8 @@ void ProgrammePage::saveCurrentBlock()
             o["zApproche"]     = m_blkForm->zApproche();
             o["avanceLiaison"] = m_blkForm->avanceLiaison();
             o["m25RetourOrigine"] = m_blkForm->m25RetourOrigine();
+            // Onglet 3 : modèle 3D + origine figée
+            o["modele3d"] = m_blkForm->modele3D();
             b.data = o;
         }
     } else if (b.type == BlockType::Trou
@@ -2449,6 +2529,9 @@ void ProgrammePage::saveCurrentBlock()
             TrouData td = m_editor->saveTrou();
             b.data = trouToJson(td);
         }
+    } else if (b.type == BlockType::Usinage3D) {
+        if (m_u3d && m_rightStack && m_rightStack->currentIndex() == 2)
+            b.data = m_u3d->donnees();
     } else if (b.type == BlockType::FraisageTrou) {
         if (m_editor && m_rightStack && m_rightStack->currentIndex() == 1) {
             FraisageTrouData ftd = m_editor->saveFraisageTrou();
@@ -2493,6 +2576,7 @@ void ProgrammePage::loadEncFile(const QString &filePath)
     }
     QByteArray raw = f.readAll(); f.close();
     m_currentPath = filePath;
+    EazyFileDialog::dossierProgramme() = QFileInfo(m_currentPath).absolutePath();
 
     QJsonParseError err;
     QJsonDocument doc = QJsonDocument::fromJson(raw, &err);
@@ -2532,6 +2616,7 @@ void ProgrammePage::loadEncFile(const QString &filePath)
         else if (t=="RainureCirc")   b.type=BlockType::RainureCirc;
         else if (t=="TenonRect")     b.type=BlockType::TenonRect;
         else if (t=="TenonCirc")     b.type=BlockType::TenonCirc;
+        else if (t=="Usinage3D")     b.type=BlockType::Usinage3D;
         else                         { b.type=BlockType::BlkForm; hasBlkForm=true; }
         m_nextId = qMax(m_nextId, b.id+1);
         m_blocks.append(b);
@@ -2547,9 +2632,21 @@ void ProgrammePage::loadEncFile(const QString &filePath)
     // ExecutionPage mise à jour seulement via bouton Enr enc.
     // La simulation, elle, reçoit le programme tout de suite.
     {
-        const QString baseName = QFileInfo(m_currentPath).baseName();
+        // Si le .nc déjà généré est à jour (écrit après le .enc), la
+        // simulation le prend tel quel : pas de recalcul à l'ouverture.
+        const QFileInfo fe(m_currentPath);
+        const QFileInfo fn(fe.absolutePath() + "/" + fe.completeBaseName() + ".nc");
+        if (fn.exists() && fn.lastModified() >= fe.lastModified().addSecs(-2)) {
+            const QVector<GCodeLine> lignes = NcFileParser::parse(fn.absoluteFilePath());
+            if (!lignes.isEmpty()) {
+                CrashHandler::log("loadEncFile: simulation depuis le .nc existant (pas de recalcul)");
+                emit simGCodeReady(m_blocks, lignes, fe.fileName());
+                return;
+            }
+        }
+        const QString baseName = fe.baseName();
         emit simGCodeReady(m_blocks, buildGCode(m_blocks, baseName.isEmpty() ? "Programme" : baseName),
-                           QFileInfo(m_currentPath).fileName());
+                           fe.fileName());
     }
 }
 
@@ -2604,9 +2701,7 @@ bool ProgrammePage::saveEncFile(const QString &filePath)
     // NE PAS appeler saveCurrentBlock() ici — évite la récursion via gCodeReady
     QString path = filePath.isEmpty() ? m_currentPath : filePath;
     if (path.isEmpty()) {
-        path = QFileDialog::getSaveFileName(
-            this, "Enregistrer le programme",
-            QString(), "Programmes EazyNC (*.enc);;Tous les fichiers (*)");
+        path = EazyFileDialog::enregistrer(this, "Enregistrer le programme", QString(), ".enc", "OP1-FRAISAGE");
         if (path.isEmpty()) return false;
         if (!path.endsWith(".enc", Qt::CaseInsensitive)) path += ".enc";
     }
@@ -2636,6 +2731,7 @@ bool ProgrammePage::saveEncFile(const QString &filePath)
         case BlockType::RainureCirc:    obj["type"]="RainureCirc";   break;
         case BlockType::TenonRect:      obj["type"]="TenonRect";     break;
         case BlockType::TenonCirc:      obj["type"]="TenonCirc";     break;
+        case BlockType::Usinage3D:      obj["type"]="Usinage3D";     break;
         }
         arr.append(obj);
     }
@@ -2648,6 +2744,7 @@ bool ProgrammePage::saveEncFile(const QString &filePath)
     f.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
     f.close();
     m_currentPath = path;
+    EazyFileDialog::dossierProgramme() = QFileInfo(m_currentPath).absolutePath();
     qDebug() << "[EazyNC] .enc écrit :" << path;
 
     // Générer le G-code UNE SEULE FOIS sur le thread principal
@@ -2773,6 +2870,7 @@ void ProgrammePage::showBlockInEditor(int index)
                 bd["zApproche"].toDouble(2.0),
                 bd["avanceLiaison"].toDouble(0.0),
                 bd["m25RetourOrigine"].toBool(true));
+            m_blkForm->setModele3D(bd["modele3d"].toObject());
             CrashHandler::log("BlkForm: setValues OK");
         }
         // Afficher le schéma 3D de la pièce dans la colonne aide
@@ -2784,6 +2882,17 @@ void ProgrammePage::showBlockInEditor(int index)
             m_brutPreview->setVisible(true);
             if (m_helpLabel) m_helpLabel->setVisible(false);
         }
+    } else if (b.type == BlockType::Usinage3D) {
+        m_rightStack->setCurrentIndex(2);
+        {
+            QJsonObject blk3d;                       // origine figée du BLK FORM
+            for (const BlockData &bl : std::as_const(m_blocks))
+                if (bl.type == BlockType::BlkForm && !bl.data.isEmpty()) { blk3d = bl.data["modele3d"].toObject(); break; }
+            m_u3d->setModeleBlk(blk3d);
+        }
+        m_u3d->charger(b.data);
+        if (b.data.isEmpty() && m_currentIndex >= 0 && m_currentIndex < m_blocks.size())
+            m_blocks[m_currentIndex].data = m_u3d->donnees();
     } else if (b.type == BlockType::Contour || b.type == BlockType::PocheContour) {
         CrashHandler::log("Contour: setCurrentIndex(1)...");
         m_rightStack->setCurrentIndex(1);
@@ -3056,6 +3165,11 @@ QString ProgrammePage::labelForBlock(const BlockData &b, int pos) const
         return QString("%1  Poche contour%2").arg(num).arg(info.isEmpty() ? " — définir contour" : info);
     }
     }
+    if (b.type == BlockType::Usinage3D) {
+        const QString f = b.data["fichier"].toString();
+        return QString("%1  Usinage 3D%2").arg(num)
+            .arg(f.isEmpty() ? QString::fromUtf8(" — choisir le fichier 3D") : "  " + QFileInfo(f).baseName());
+    }
     return QString("%1  ?").arg(num);
 }
 
@@ -3135,6 +3249,9 @@ void ProgrammePage::insertAlesage()
 { BlockData b; b.id=m_nextId++; b.type=BlockType::Alesage;        b.name="Alesage";         addBlock(b); }
 void ProgrammePage::insertContour()
 { BlockData b; b.id=m_nextId++; b.type=BlockType::Contour;        b.name="Contour";         addBlock(b); }
+void ProgrammePage::insertUsinage3D()
+{ BlockData b; b.id=m_nextId++; b.type=BlockType::Usinage3D; b.name="Usinage 3D"; addBlock(b); }
+
 void ProgrammePage::insertPocheContour()
 { BlockData b; b.id=m_nextId++; b.type=BlockType::PocheContour;   b.name="Poche contour";   addBlock(b); }
 void ProgrammePage::insertSurfacage()
