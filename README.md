@@ -34,6 +34,18 @@ Each input field shows a short 3D animation in the HELP panel: plunge modes, dep
 
 ![Animated help: helical plunge](docs/images/aide-plongee-helice.gif)
 
+### 3D machining from a STEP file
+
+Set up the part Fusion-style, in three steps: pick the machine axes by clicking faces of the part box (the third axis is deduced, the origin never moves), choose the origin on the stock box, on the part box (3×3 pad + top / middle / bottom) or on any point of the part, then define the stock around the part or with fixed dimensions. "Compute and lock" fills the BLK FORM.
+
+![STEP setup: machine axes](docs/images/mise-en-place-axes.png)
+
+![STEP setup: origin on the part box](docs/images/mise-en-place-origine.png)
+
+The 3D Machining block then roughs layer by layer (one contour per layer, from the stock) and finishes layer by layer with the ball-nose cutter, using the locked origin and stock of the BLK FORM.
+
+![3D Machining block](docs/images/bloc-usinage3d.png)
+
 ### 3D simulation
 
 Real-time stock removal, one color per tool, line-by-line G-code playback.

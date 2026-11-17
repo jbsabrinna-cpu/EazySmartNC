@@ -32,6 +32,18 @@ Chaque champ de saisie affiche une courte animation 3D dans le cadre AIDE : mode
 
 ![Aide animée : plongée hélicoïdale](docs/images/aide-plongee-helice.gif)
 
+### Usinage 3D depuis un STEP
+
+Mise en place de la pièce façon Fusion, en trois étapes : le sens des axes machine en cliquant les faces de la boîte pièce (le 3e axe est déduit, l'origine ne bouge pas), l'origine sur la boîte du brut, sur la boîte de la pièce (pavé 3×3 + dessus / milieu / dessous) ou sur un point de la pièce, puis le brut autour de la pièce ou en dimensions fixes. « Calculer et figer » remplit le BLK FORM.
+
+![Mise en place du STEP : sens des axes](docs/images/mise-en-place-axes.png)
+
+![Mise en place du STEP : origine sur la boîte de la pièce](docs/images/mise-en-place-origine.png)
+
+Le bloc Usinage 3D fait ensuite l'ébauche couche par couche (un contour par couche, depuis le brut) et la finition couche par couche à la fraise boule, avec l'origine et le brut figés du BLK FORM.
+
+![Bloc Usinage 3D](docs/images/bloc-usinage3d.png)
+
 ### Simulation 3D
 
 Enlèvement de matière en temps réel, une couleur par outil, lecture ligne à ligne du G-code.
