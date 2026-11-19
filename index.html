@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EazySmartNC — Logiciel FAO conversationnel gratuit pour Centroid CNC12</title>
+<meta name="description" content="EazySmartNC (EazyNC) : logiciel de programmation CNC conversationnelle, gratuit et open source, pour Centroid CNC12 (Acorn, AcornSix, Oak). Programmation par cycles sans écrire de G-code, convertisseur DXF, import STEP, simulation 3D. Inspiré des commandes Heidenhain.">
+<meta name="keywords" content="FAO, CAM, CNC, Centroid, CNC12, Acorn, programmation conversationnelle, G-code, fraisage, fraiseuse, défonceuse CNC, DXF, STEP, simulation usinage, Heidenhain, SmartNC, logiciel gratuit, open source">
+<meta name="author" content="JB">
+<link rel="canonical" href="https://jbsabrinna-cpu.github.io/EazySmartNC-/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="EazySmartNC — FAO conversationnelle pour Centroid CNC12">
+<meta property="og:description" content="Programmer une fraiseuse CNC par cycles, sans écrire de G-code. Gratuit et open source.">
+<meta property="og:url" content="https://jbsabrinna-cpu.github.io/EazySmartNC-/">
+<meta property="og:image" content="https://jbsabrinna-cpu.github.io/EazySmartNC-/images/simulation-telecaster.png">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "EazySmartNC",
+  "alternateName": "EazyNC",
+  "applicationCategory": "DesignApplication",
+  "operatingSystem": "Windows 10, Windows 11",
+  "description": "Logiciel FAO conversationnel pour Centroid CNC12 : programmation par cycles, convertisseur DXF, import STEP, simulation 3D, génération de G-code.",
+  "url": "https://jbsabrinna-cpu.github.io/EazySmartNC-/",
+  "codeRepository": "https://github.com/jbsabrinna-cpu/EazySmartNC-",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+  "author": { "@type": "Person", "name": "JB" }
+}
+</script>
+<style>
+  :root { --bg:#0b0d0b; --panel:#141814; --line:#263026; --text:#e6ebe6; --muted:#9aa59a; --green:#A6CE39; --green2:#00B400; --yellow:#FFFF77; }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  a { color:var(--green); }
+  .wrap { max-width:1080px; margin:0 auto; padding:0 20px; }
+  header.top { border-bottom:1px solid var(--line); background:#000; position:sticky; top:0; z-index:5; }
+  header.top .wrap { display:flex; align-items:center; justify-content:space-between; height:56px; }
+  .logo { font-weight:800; letter-spacing:.5px; color:var(--text); text-decoration:none; }
+  .logo span { color:var(--green); }
+  nav a { color:var(--muted); text-decoration:none; margin-left:18px; font-size:14px; }
+  nav a:hover { color:var(--yellow); }
+  .hero { padding:64px 20px 40px; }
+  .hero h1 { font-size:clamp(30px,5vw,50px); line-height:1.1; margin:0 0 16px; }
+  .hero h1 em { font-style:normal; color:var(--green); }
+  .hero p.lead { font-size:19px; color:var(--muted); max-width:720px; margin:0 0 28px; }
+  .btns { display:flex; gap:12px; flex-wrap:wrap; }
+  .btn { display:inline-block; padding:12px 20px; border-radius:6px; font-weight:700; text-decoration:none; border:1px solid var(--green); }
+  .btn.primary { background:var(--green); color:#000; }
+  .btn.ghost { color:var(--green); }
+  .btn:hover { filter:brightness(1.1); }
+  .tags { margin-top:22px; display:flex; flex-wrap:wrap; gap:8px; }
+  .tags span { font-size:13px; color:var(--yellow); border:1px solid #3a3a22; background:#17170c; padding:3px 10px; border-radius:20px; }
+  .shot { margin:36px auto 0; max-width:760px; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#000; }
+  .shot img { display:block; width:100%; height:auto; }
+  section { padding:56px 0; border-top:1px solid var(--line); }
+  h2 { font-size:28px; margin:0 0 8px; }
+  h2 small { display:block; font-size:14px; color:var(--green2); text-transform:uppercase; letter-spacing:2px; margin-bottom:4px; }
+  .intro { color:var(--muted); max-width:760px; margin:0 0 32px; }
+  .feature { display:grid; grid-template-columns:1fr 1.25fr; gap:32px; align-items:center; margin-bottom:48px; }
+  .feature:nth-child(even) .txt { order:2; }
+  .feature h3 { margin:0 0 8px; color:var(--green); font-size:21px; }
+  .feature p { margin:0; color:var(--text); }
+  .feature figure { margin:0; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#000; }
+  .feature img { display:block; width:100%; height:auto; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:18px 20px; }
+  .card h3 { margin:0 0 8px; font-size:16px; color:var(--yellow); }
+  .card ul { margin:0; padding-left:18px; color:var(--muted); font-size:15px; }
+  .why { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+  .why div { border-left:3px solid var(--green); padding:4px 0 4px 16px; }
+  .why b { display:block; margin-bottom:4px; }
+  .why span { color:var(--muted); font-size:15px; }
+  .en { background:var(--panel); }
+  .en p { max-width:760px; }
+  footer { border-top:1px solid var(--line); padding:28px 0 40px; color:var(--muted); font-size:14px; }
+  footer p { margin:6px 0; }
+  @media (max-width:760px) {
+    nav a:not(.gh) { display:none; }
+    .feature { grid-template-columns:1fr; gap:14px; }
+    .feature:nth-child(even) .txt { order:0; }
+    .hero { padding:40px 20px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="logo" href="#">Eazy<span>SmartNC</span></a>
+    <nav>
+      <a href="#apercu">Aperçu</a>
+      <a href="#fonctions">Fonctions</a>
+      <a href="#english">English</a>
+      <a class="gh" href="https://github.com/jbsabrinna-cpu/EazySmartNC-">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<div class="wrap hero">
+  <h1>Programmer une CNC <em>sans écrire de G&#8209;code</em></h1>
+  <p class="lead">EazySmartNC est un logiciel de FAO conversationnelle, gratuit et open source, pour les commandes <strong>Centroid CNC12</strong> (Acorn, AcornSix, Oak). Vous remplissez des blocs (brut, poches, perçages, contours), le logiciel calcule les trajectoires, les simule en 3D et génère un programme <code>.nc</code> prêt à usiner. L'esprit de programmation des commandes Heidenhain, sur n'importe quelle machine qui fraise : fraiseuse ou défonceuse CNC.</p>
+  <div class="btns">
+    <a class="btn primary" href="https://github.com/jbsabrinna-cpu/EazySmartNC-">Voir le projet sur GitHub</a>
+    <a class="btn ghost" href="https://www.centroidcncforum.com/viewtopic.php?t=12525">Discussion sur le forum Centroid</a>
+  </div>
+  <div class="tags"><span>Gratuit</span><span>Open source</span><span>Windows</span><span>C++ / Qt 6</span><span>Écrit par un fraiseur</span></div>
+  <div class="shot"><img src="images/simulation-poche-etagee.gif" alt="Simulation 3D d'une poche étagée avec îlots dans EazySmartNC" width="640" height="383"></div>
+</div>
+
+<section id="apercu">
+  <div class="wrap">
+    <h2><small>Aperçu</small>Ce que fait EazySmartNC</h2>
+    <p class="intro">Un programme simple, lisible par tout le monde, plutôt qu'une montagne de G-code. Chaque bloc correspond à une opération d'usinage, avec des écrans d'aide animés pour chaque paramètre.</p>
+
+    <div class="feature">
+      <div class="txt">
+        <h3>Poche contour avec îlots</h3>
+        <p>Une ligne par contour, en poche ou en îlot, avec son Z de départ et sa profondeur. Le cycle découpe la hauteur en tranches à chaque niveau et calcule la zone à vider à chaque passe. Les poches étagées et les îlots sous la surface sont gérés.</p>
+      </div>
+      <figure><img src="images/saisie-poche-contour.gif" alt="Saisie d'une poche contour avec îlots" loading="lazy"></figure>
+    </div>
+
+    <div class="feature">
+      <div class="txt">
+        <h3>Convertisseur DXF</h3>
+        <p>Sélection d'un contour en un clic (chaînage automatique, sens d'usinage, éléments à cocher comme sur une commande TNC) et sélection des positions de perçage par fenêtre, avec un filtre par diamètre.</p>
+      </div>
+      <figure><img src="images/convertisseur-dxf.gif" alt="Convertisseur DXF d'EazySmartNC" loading="lazy"></figure>
+    </div>
+
+    <div class="feature">
+      <div class="txt">
+        <h3>Aide 3D animée</h3>
+        <p>Chaque champ de saisie affiche une courte animation 3D : modes de plongée, profondeur de passe, plans d'approche et de dégagement, recouvrement, surépaisseurs, avalant ou opposition, rayon d'entrée…</p>
+      </div>
+      <figure><img src="images/aide-plongee-helice.gif" alt="Aide animée : plongée en hélice" loading="lazy"></figure>
+    </div>
+
+    <div class="feature">
+      <div class="txt">
+        <h3>Usinage 3D depuis un fichier STEP</h3>
+        <p>Mise en place de la pièce en trois étapes : axes machine choisis en cliquant les faces, origine sur le brut, sur la pièce ou sur n'importe quel point, puis brut autour de la pièce. Le bloc Usinage 3D ébauche et finit couche par couche.</p>
+      </div>
+      <figure><img src="images/mise-en-place-origine.png" alt="Mise en place d'une pièce STEP : choix de l'origine" loading="lazy"></figure>
+    </div>
+
+    <div class="feature">
+      <div class="txt">
+        <h3>Simulation 3D</h3>
+        <p>Enlèvement de matière en temps réel, une couleur par outil, lecture du G-code ligne par ligne. Vous vérifiez le programme avant de lancer la machine.</p>
+      </div>
+      <figure><img src="images/simulation-telecaster.png" alt="Simulation 3D de l'usinage d'un corps de guitare Telecaster" loading="lazy"></figure>
+    </div>
+  </div>
+</section>
+
+<section id="fonctions">
+  <div class="wrap">
+    <h2><small>Fonctions</small>Tout ce qu'il faut pour l'atelier</h2>
+    <p class="intro">Les cycles d'usinage courants, une table d'outils et la liaison avec la commande CNC12.</p>
+    <div class="grid">
+      <div class="card"><h3>Programmation par blocs</h3><ul>
+        <li>Brut (BLK FORM) avec paramètres hérités par tous les blocs</li>
+        <li>Copier, couper, insérer plusieurs blocs</li>
+        <li>Fichiers programme, contours (.cnt) et motifs de points (.pnt)</li></ul></div>
+      <div class="card"><h3>Cycles d'usinage</h3><ul>
+        <li>Poches rectangulaires, circulaires et contour</li>
+        <li>Contournage : ébauche adaptative, R0 / RL / RR</li>
+        <li>Fraisage de trou en hélice</li>
+        <li>Perçage, débourrage, pointage, taraudage, alésage</li></ul></div>
+      <div class="card"><h3>Stratégies</h3><ul>
+        <li>Plongée droite, en hélice ou en rampe</li>
+        <li>Ébauche et finition séparées, surépaisseurs</li>
+        <li>Avalant ou opposition</li>
+        <li>Correction de rayon calculée par le logiciel (G40)</li></ul></div>
+      <div class="card"><h3>Outils, import, machine</h3><ul>
+        <li>Table d'outils : avances en mm/min, mm/tr ou mm/dent</li>
+        <li>Import DXF, et STEP/IGES via OpenCASCADE</li>
+        <li>Pages Manuel, Exécution et MDI reliées à CNC12 via l'API Centroid</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2><small>Pourquoi</small>Un logiciel pensé par un fraiseur</h2>
+    <div class="why">
+      <div><b>La logique Heidenhain</b><span>Le développeur programme au quotidien sur des commandes Heidenhain TNC 530, 620 et 640. EazySmartNC reprend leur philosophie conversationnelle pour les machines Centroid.</span></div>
+      <div><b>Pas de G-code à écrire</b><span>Vous décrivez la pièce et les opérations. Le logiciel s'occupe des trajectoires, des entrées et sorties et des passes.</span></div>
+      <div><b>Gratuit et ouvert</b><span>Le code source est public sur GitHub. Les retours de machinistes et de développeurs sont les bienvenus.</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="english" class="en" lang="en">
+  <div class="wrap">
+    <h2><small>English</small>Conversational CAM for Centroid CNC12</h2>
+    <p>EazySmartNC (application <em>EazyNC</em>) is a free, open-source conversational CAM program for <strong>Centroid CNC12</strong> controls (Acorn, AcornSix, Oak), in the spirit of Heidenhain conversational programming. You fill in blocks (stock, pockets, drilling, profiles), the software computes the toolpaths, simulates them in 3D and generates a ready-to-run <code>.nc</code> program. It includes a DXF converter, STEP import for 3D machining, a tool table and an optional live link with CNC12. Written in C++ / Qt 6 by a CNC machinist. The user interface is currently in French.</p>
+    <div class="btns">
+      <a class="btn primary" href="https://github.com/jbsabrinna-cpu/EazySmartNC-">View on GitHub</a>
+      <a class="btn ghost" href="https://www.centroidcncforum.com/viewtopic.php?t=12525">Centroid forum thread</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><strong>EazySmartNC</strong> — développé par JB, fraiseur CNC.</p>
+    <p>Projet indépendant, sans lien avec Heidenhain ni Centroid. Heidenhain, TNC et SmartNC sont des marques de DR. JOHANNES HEIDENHAIN GmbH ; Centroid et CNC12 sont des marques de Centroid Corporation.</p>
+  </div>
+</footer>
+
+</body>
+</html>
