@@ -14,6 +14,8 @@ EazySmartNC (application *EazyNC*) permet de programmer une fraiseuse CNC **sans
 > **Configuration de test du développeur :** Intel Core i3-12100F, 16 Go de RAM, carte graphique NVIDIA RTX 3060, Windows 11, Centroid CNC12 Acorn Mill v5.42.10 avec carte Acorn.
 >
 > Le logiciel n'a pas encore été essayé sur des PC plus modestes. Avec une carte graphique intégrée (Intel, AMD) ou peu de mémoire, la simulation 3D et le calcul de l'usinage 3D peuvent être lents. Il faut un pilote graphique à jour (OpenGL).
+>
+> **Liaison avec CNC12 (API Centroid) :** les appels à l'API ont été corrigés, EazyNC arrive maintenant à charger le programme dans CNC12. Aucun essai d'usinage n'a encore été fait avec cette liaison. D'autres corrections des appels à l'API sont prévues dans un futur proche.
 
 ![Simulation d'une poche étagée avec îlots](docs/images/simulation-poche-etagee.gif)
 

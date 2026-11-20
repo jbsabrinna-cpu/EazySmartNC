@@ -12,6 +12,7 @@ SOURCES += \
     cadview3d.cpp \
     decoupe3d.cpp \
     usinage3deditor.cpp \
+    calculdialog.cpp \
     helpanimwidget.cpp \
     clipper2/clipper.engine.cpp \
     clipper2/clipper.offset.cpp \
@@ -60,6 +61,8 @@ HEADERS += \
     cadview3d.h \
     decoupe3d.h \
     usinage3deditor.h \
+    calculdialog.h \
+    progression.h \
     helpanimwidget.h \
     occoffset.h \
     cadimporter.h \
@@ -127,6 +130,9 @@ FORMS += \
 # simulation, les wrappers Centroid passent en version vide).
 # Activer sur le PC machine : Projects > Build > qmake >
 #   Additional arguments : CONFIG+=WITH_CENTROID
+# Ou plus simple : un fichier « avec_centroid.txt » dans le dossier du projet
+# (le supprimer pour revenir au mode simulation).
+exists($$PWD/avec_centroid.txt): CONFIG += WITH_CENTROID
 contains(CONFIG, WITH_CENTROID) {
     DEFINES += WITH_CENTROID_API
     message("*** EazyNC : compilation AVEC l'API Centroid CNC12 ***")
@@ -148,6 +154,14 @@ INCLUDEPATH += $$PWD/cycles
 LIBS += -lUser32
 LIBS += -lopengl32 -lglu32
 
+# Debug OPTIMISÉ : les calculs 3D (finition, simulation) sont 10 à 30 fois
+# plus lents sans optimisation. On garde le même dossier (tools.json, DLL)
+# qu'avant : pas de second tableau d'outils comme avec un kit Release.
+msvc:CONFIG(debug, debug|release) {
+    QMAKE_CFLAGS_DEBUG   += -O2
+    QMAKE_CXXFLAGS_DEBUG += -O2
+}
+
 # dbghelp pour crashhandler (MSVC — lie automatiquement via #pragma comment)
 msvc {
     LIBS += -ldbghelp
@@ -163,7 +177,8 @@ contains(DEFINES, WITH_CENTROID_API) {
 #────────────────────────────────────────────
 RESOURCES += \
     icons.qrc \
-    help_anim.qrc
+    help_anim.qrc \
+    aide3d.qrc
 
 # Ressources volumineuses (animations GIF) : compilées à part par rcc
 CONFIG += resources_big
@@ -228,4 +243,9 @@ contains(CONFIG, WITH_OCC) {
     EXE_DIR = $$shell_path($$OUT_PWD/debug)
     CONFIG(release, debug|release): EXE_DIR = $$shell_path($$OUT_PWD/release)
     QMAKE_POST_LINK += xcopy /D /Y /Q \"$$OCC_BIN\\*.dll\" \"$$EXE_DIR\\\" $$escape_expand(\\n\\t)
+    # API Centroid : toujours la DLL livrée avec le CNC12 installé (une DLL
+    # d'une autre version décale les codes retour, ex. SUCCESS 27 -> 30)
+    contains(DEFINES, WITH_CENTROID_API): exists(C:/cncm/CentroidAPI.dll) {
+        QMAKE_POST_LINK += copy /Y \"C:\\cncm\\CentroidAPI.dll\" \"$$EXE_DIR\\CentroidAPI.dll\" $$escape_expand(\\n\\t)
+    }
 }

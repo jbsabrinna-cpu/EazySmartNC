@@ -189,6 +189,7 @@ struct BlockData {
 // ═══════════════════════════════════════════════════════════════
 //  ProgrammePage
 // ═══════════════════════════════════════════════════════════════
+class QPushButton;
 class ProgrammePage : public QWidget
 {
     Q_OBJECT
@@ -199,6 +200,8 @@ public:
     bool    saveEncFile(const QString &filePath = {});
     void    saveFiles();
     QString currentEncPath() const { return m_currentPath; }
+    bool    genererGCode();                       // softkey « Générer G-code »
+    bool    gcodeAJour() const { return m_gcodeAJour; }
 
     UnitEditor* unitEditor() const { return m_editor; }
 
@@ -240,6 +243,7 @@ public:
 
 signals:
     void clipboardChanged(bool hasClip);
+    void gcodeAJourChanged(bool aJour);          // softkey « Générer G-code » orange si false
     // Programme chargé depuis un .enc : pour la simulation seulement
     // (l'exécution reste mise à jour par « Enr enc »)
     void simGCodeReady(const QVector<BlockData> &blocks,
@@ -266,6 +270,8 @@ private:
     void    addBlock(BlockData b);
     void    refreshList();
     void    showBlockInEditor(int index);
+    void    modeVue3D(bool on);                   // colonne de droite : vue 3D (blocs 3D) ou aide
+    void    pleinEcran3D(bool on);
     void    updateSelectionHighlight();
     void    emitGCodeReady();
     QString labelForBlock(const BlockData &b, int pos = -1) const;
@@ -274,6 +280,13 @@ private:
 
     QListWidget    *m_list       = nullptr;
     QStackedWidget *m_rightStack = nullptr;
+    QWidget        *m_leftPanel  = nullptr;
+    class QSplitter *m_split3d   = nullptr;     // éditeur | colonne de droite
+    QStackedWidget *m_col3       = nullptr;     // 0 aide, 1 vue 3D
+    class CadView3D *m_vue3d     = nullptr;
+    QPushButton    *m_btnPlein   = nullptr;
+    bool            m_en3D       = false;
+    bool            m_plein3D    = false;
     BlkFormWidget  *m_blkForm    = nullptr;
     UnitEditor     *m_editor     = nullptr;
     class Usinage3DEditor *m_u3d = nullptr;     // page du bloc Usinage 3D (pile index 2)
@@ -298,6 +311,11 @@ private:
     void      setSelRangeTo(int row);
 
     bool      m_savingBlock = false;  // guard anti-boucle saveCurrentBlock
+    bool      m_gcodeAJour  = false;  // le .nc correspond au programme
+    bool      m_affichageBloc = false; // remplissage de l'éditeur en cours
+    void      setGcodeAJour(bool ok);
+    void      marquerModifie();
+    void      afficherMessage(const QString &txt, int ms);
     QTimer   *m_saveTimer   = nullptr; // debounce save
 
     bool      m_selectionMode = false;

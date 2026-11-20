@@ -56,6 +56,7 @@ struct Usinage3DPlan
 {
     QVector<Couche3D> couches;     // ombre + zone à vider (repère STEP)
     Contours2D limite;             // brut ou zone choisie
+    Contours2D zone;               // zone choisie brute (contours + faces vertes), vide = tout
     double origine[3] = {0, 0, 0};
     double brutMin[3] = {0, 0, 0};
     double brutMax[3] = {0, 0, 0};
@@ -69,6 +70,23 @@ public:
     Usinage3DGenerator(const QJsonObject &d, double approche, double sautBride);
     QVector<GCodeLine> generate(int blkId) override;
 
+    // ── Opérations du bloc ──────────────────────────────────────
+    //  Bloc = réglages communs (STEP, origine, brut, cavités exclues)
+    //       + « operations » : liste ordonnée, chacune avec son cycle, son
+    //         outil, ses paramètres et SA zone (faces / contours).
+    //  type : "ebauche" | "zconst" | "balayage" | "zbal" | "mixte"
+    //  Un ancien bloc (modeUsin 0/1/2) est converti à la lecture.
+    static QJsonArray operations(const QJsonObject &d);
+    // Réglages « à plat » (ancien format) pour calculer UNE opération
+    static QJsonObject pourOperation(const QJsonObject &d, const QJsonObject &op);
+    static bool estEbauche(const QJsonObject &op) { return op["type"].toString() == "ebauche"; }
+    static QString nomCycle(const QString &type);
+    // Zone d'une opération dans le plan XY (contours + empreinte des faces) ; vide = toute la pièce
+    static Contours2D zoneOperation(const QJsonObject &op, const CadDocument &doc);
+    // Avertissement de l'opération i (vide si rien à signaler) : finition qui
+    // descend dans de la matière non ébauchée (pas d'ébauche avant, ou hors zone)
+    static QString avertissement(const QJsonArray &ops, int i, const CadDocument &doc);
+
     // Couches d'ébauche (niveaux + ombre + zone à vider)
     //  rayonEb : rayon de l'outil d'ébauche (pour agrandir la zone choisie)
     static Usinage3DPlan plan(const QJsonObject &d, const CadDocument &doc, double rayonEb);
@@ -81,6 +99,7 @@ public:
 
 private:
     QVector<GCodeLine> calculer(int blkId);    // calcul complet (sans la mémoire)
+    QVector<GCodeLine> generateUne(int blkId); // une opération (réglages à plat), avec la mémoire
     QJsonObject m_d;
     double m_approche = 2.0;
     double m_sautBride = 50.0;

@@ -888,7 +888,7 @@ CadDocument CadImporter::occLoad(const QString& filePath, const QString& format)
             doc.bbMin[0]=float(x0); doc.bbMin[1]=float(y0); doc.bbMin[2]=float(z0);
             doc.bbMax[0]=float(x1); doc.bbMax[1]=float(y1); doc.bbMax[2]=float(z1);
             const double diag = std::sqrt((x1-x0)*(x1-x0)+(y1-y0)*(y1-y0)+(z1-z0)*(z1-z0));
-            BRepMesh_IncrementalMesh mesher(shape, qMax(0.005, diag * 0.0003), Standard_False, 0.12, Standard_True);
+            BRepMesh_IncrementalMesh mesher(shape, qBound(0.002, diag * 0.00002, 0.005), Standard_False, 0.015, Standard_True);   // très fin : pas de facettes visibles en finition   // fin : surfaces lisses pour l'usinage
         }
         int faceNo = 0;
         for (TopExp_Explorer fx(shape, TopAbs_FACE); fx.More(); fx.Next(), ++faceNo) {

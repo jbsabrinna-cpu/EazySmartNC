@@ -7,6 +7,8 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <functional>
+#include <QPair>
+#include <QDateTime>
 #include "centroidbridgewrapper.h"
 #include "centroidstatewrapper.h"
 #include "vcpcontroller.h"
@@ -115,6 +117,10 @@ private:
 
     // ── Bouton Configuration (softkey mode manuel) ────────
     QToolButton *m_configButton = nullptr;
+    QToolButton *m_skGenerer = nullptr;        // softkey « Générer G-code »
+    void chargerDansCnc12(const QString &path, std::function<void(bool)> fini);
+    QPair<QString, QDateTime> m_dernierEnvoi;   // dernier .nc chargé dans CNC12 (chemin, date)
+    int  m_ticsAffichage = 0;
     void setupConfigButton();
 
     // Reapplique les textes traduits (effet immediat changement langue)

@@ -1,4 +1,8 @@
 #include "Ncfileparser.h"
+#include "progression.h"
+#include "calculdialog.h"
+#include <QThread>
+#include <QDateTime>
 #include "cycles/usinage3dgenerator.h"
 #include "blkmodele3d.h"
 #include <algorithm>
@@ -53,6 +57,11 @@
 #include <QAtomicInt>
 #include "crashhandler.h"
 #include "eazyfiledialog.h"
+#include "cadview3d.h"
+#include <QSplitter>
+#include <QShortcut>
+#include <QSettings>
+#include <QPushButton>
 
 // ═══════════════════════════════════════════════════════════════
 //  Sérialisation JSON PocheData / TrouData
@@ -701,7 +710,40 @@ static QVector<GCodeLine> buildGCode(const QVector<BlockData> &blocks,
         c.code    = "( " + c.comment + " )";
         lines << c;
     };
+    Progression::nbBlocs = int(blocks.size());
+    int iBloc = 0;
     for (const BlockData &b : std::as_const(blocks)) {
+        Progression::bloc = ++iBloc; Progression::typeBloc = int(b.type);
+        Progression::phase = 0; Progression::etape = 0; Progression::nbEtapes = 0;
+        if (Progression::annuler) break;
+        // Repère de bloc : la page Exécution découpe le programme avec
+        if (b.type != BlockType::BlkForm) {
+            QString t;
+            switch (b.type) {
+            case BlockType::PocheRect: case BlockType::Poche: t = "POCHE RECT."; break;
+            case BlockType::PocheCirc:      t = "POCHE CIRC."; break;
+            case BlockType::Percage: case BlockType::Trou: t = "PERCAGE"; break;
+            case BlockType::PercageDebourr: t = "PERCAGE DEBOURRAGE"; break;
+            case BlockType::Pointage:       t = "POINTAGE"; break;
+            case BlockType::Taraudage:      t = "TARAUDAGE"; break;
+            case BlockType::Alesage:        t = "ALESAGE"; break;
+            case BlockType::Contour:        t = "CONTOUR"; break;
+            case BlockType::PocheContour:   t = "POCHE CONTOUR"; break;
+            case BlockType::FraisageTrou:   t = "FRAISAGE TROU"; break;
+            case BlockType::Surfacage:      t = "SURFACAGE"; break;
+            case BlockType::Rainure:        t = "RAINURE"; break;
+            case BlockType::RainureCirc:    t = "RAINURE CIRC."; break;
+            case BlockType::TenonRect:      t = "TENON RECT."; break;
+            case BlockType::TenonCirc:      t = "TENON CIRC."; break;
+            case BlockType::Usinage3D:      t = "USINAGE 3D"; break;
+            default:                        t = "BLOC"; break;
+            }
+            GCodeLine c;
+            c.type    = GCodeLine::Comment;
+            c.comment = QString("== BLOC %1 : %2 : %3 ==").arg(b.id).arg(t, QString(b.name).replace(':', ' ').replace('(', '[').replace(')', ']'));
+            c.code    = "( " + c.comment + " )";
+            lines << c;
+        }
         qDebug() << "[buildGCode] bloc id=" << b.id << "name=" << b.name
                  << "type=" << (int)b.type << "data.isEmpty=" << b.data.isEmpty();
         if (b.type == BlockType::BlkForm) {
@@ -1890,6 +1932,7 @@ void ProgrammePage::setupUi()
 
     // ── Gauche : liste blocs ─────────────────────────────────
     auto *leftPanel = new QWidget;
+    m_leftPanel = leftPanel;
     leftPanel->setStyleSheet("background:#C8C8C8;border-right:1px solid #808080;");
     auto *leftLay = new QVBoxLayout(leftPanel);
     leftLay->setContentsMargins(0,0,0,0); leftLay->setSpacing(0);
@@ -2218,8 +2261,9 @@ void ProgrammePage::setupUi()
     m_saveTimer->setSingleShot(true);
     m_saveTimer->setInterval(30);
     connect(m_saveTimer, &QTimer::timeout, this, &ProgrammePage::saveCurrentBlock);
-    connect(m_editor, &UnitEditor::dataChanged,   this, [this]{ m_saveTimer->start(); });
-    connect(m_u3d, &Usinage3DEditor::dataChanged, this, [this]{ m_saveTimer->start(); });
+    connect(m_editor, &UnitEditor::dataChanged,   this, [this]{ m_saveTimer->start(); marquerModifie(); });
+    connect(m_u3d, &Usinage3DEditor::dataChanged, this, [this]{ m_saveTimer->start(); marquerModifie(); });
+    connect(m_blkForm, &BlkFormWidget::dataChanged, this, [this]{ marquerModifie(); });
     connect(m_u3d, &Usinage3DEditor::helpRequested, this, &ProgrammePage::showHelp);
     // Usinage 3D → remplit le brut du BLK FORM (premier bloc BlkForm)
     connect(m_u3d, &Usinage3DEditor::remplirBlkForm, this, [this](const QJsonObject &lim){
@@ -2312,10 +2356,52 @@ void ProgrammePage::setupUi()
     auto *cols = new QHBoxLayout;
     cols->setContentsMargins(0,0,0,0);
     cols->setSpacing(0);
-    cols->addWidget(leftPanel,    3);  // colonne 1 : liste blocs ~400px
-    cols->addWidget(m_rightStack, 5);  // colonne 2 : éditeur ~700px
-    cols->addWidget(helpPanel,    4);  // colonne 3 : aide ~560px
+    // Colonne 3 : aide (tous les blocs) ou vue 3D (blocs 3D seulement)
+    auto *panel3d = new QWidget;
+    panel3d->setStyleSheet("QWidget{background:#EBEBEB;border-left:1px solid #808080;}");
+    {
+        auto *v3l = new QVBoxLayout(panel3d);
+        v3l->setContentsMargins(0, 0, 0, 0); v3l->setSpacing(0);
+        auto *barre = new QWidget; barre->setFixedHeight(36);
+        barre->setStyleSheet("QWidget{background:#EAEAEA;border:none;}");
+        auto *bl = new QHBoxLayout(barre); bl->setContentsMargins(8, 2, 6, 2);
+        auto *t3 = new QLabel(QString::fromUtf8("clic : faces de l'opération"));
+        t3->setStyleSheet("QLabel{color:#404040;font-size:7pt;font-weight:700;letter-spacing:2px;}");
+        m_btnPlein = new QPushButton(QString::fromUtf8("⤢  Agrandir"));
+        m_btnPlein->setCheckable(true);
+        m_btnPlein->setStyleSheet("QPushButton{font-size:10pt;padding:3px 12px;background:#F4F4F4;border:1px solid #909090;}"
+                                  "QPushButton:checked{background:#3070E0;color:white;}");
+        bl->addWidget(m_u3d->barreFamilles(), 1);       // familles de cycles (opérations 3D)
+        bl->addWidget(t3); bl->addWidget(m_btnPlein);
+        v3l->addWidget(barre);
+        m_vue3d = new CadView3D;
+        v3l->addWidget(m_vue3d, 1);
+        connect(m_btnPlein, &QPushButton::toggled, this, &ProgrammePage::pleinEcran3D);
+        auto *echap = new QShortcut(QKeySequence(Qt::Key_Escape), panel3d);   // seulement dans la vue 3D
+        echap->setContext(Qt::WidgetWithChildrenShortcut);
+        connect(echap, &QShortcut::activated, this, [this]{ if (m_plein3D) pleinEcran3D(false); });
+    }
+    m_col3 = new QStackedWidget;
+    m_col3->addWidget(helpPanel);     // 0
+    m_col3->addWidget(panel3d);       // 1
+    m_u3d->setVue(m_vue3d);
+
+    m_split3d = new QSplitter(Qt::Horizontal);
+    m_split3d->setChildrenCollapsible(false);
+    m_split3d->setHandleWidth(6);
+    m_split3d->setStyleSheet("QSplitter::handle{background:#B8B8B8;} QSplitter::handle:hover{background:#3070E0;}");
+    m_split3d->addWidget(m_rightStack);
+    m_split3d->addWidget(m_col3);
+    m_split3d->setStretchFactor(0, 5);
+    m_split3d->setStretchFactor(1, 4);
+    connect(m_split3d, &QSplitter::splitterMoved, this, [this]{
+        if (m_en3D) QSettings("EazyNC", "EazyNC").setValue("vue3d/largeurs", m_split3d->saveState());
+    });
+
+    cols->addWidget(leftPanel, 3);  // colonne 1 : liste blocs ~400px
+    cols->addWidget(m_split3d, 9);  // colonnes 2 + 3 : éditeur | aide (ou vue 3D)
     lay->addLayout(cols);
+    modeVue3D(false);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -2471,6 +2557,7 @@ void ProgrammePage::showHelp(const QString &svgKey)
 
 void ProgrammePage::newProgram()
 {
+    m_affichageBloc = false; setGcodeAJour(false);
     m_blocks.clear(); m_currentIndex=-1; m_nextId=1;
     m_currentPath.clear(); m_selectionMode=false; m_selectedRows.clear();
     BlockData blk; blk.id=m_nextId++; blk.type=BlockType::BlkForm; blk.name="BlkForm";
@@ -2641,12 +2728,13 @@ void ProgrammePage::loadEncFile(const QString &filePath)
             if (!lignes.isEmpty()) {
                 CrashHandler::log("loadEncFile: simulation depuis le .nc existant (pas de recalcul)");
                 emit simGCodeReady(m_blocks, lignes, fe.fileName());
+                setGcodeAJour(true);
                 return;
             }
         }
-        const QString baseName = fe.baseName();
-        emit simGCodeReady(m_blocks, buildGCode(m_blocks, baseName.isEmpty() ? "Programme" : baseName),
-                           fe.fileName());
+        // Pas de .nc à jour : rien n'est calculé à l'ouverture, le softkey
+        // « Générer G-code » passe en orange.
+        setGcodeAJour(false);
     }
 }
 
@@ -2670,8 +2758,8 @@ void ProgrammePage::saveFiles()
         m_saveOverlay->setAlignment(Qt::AlignCenter);
         m_saveOverlay->setStyleSheet(
             "QLabel{"
-            "  background:rgba(14,18,22,0.88);"
-            "  color:#000000;"
+            "  background:#ffffff;"
+            "  color:#1a1a1a;"
             "  font-family:'IBM Plex Mono',monospace;"
             "  font-size:10pt; font-weight:700;"
             "  border:1px solid #3a8f34;"
@@ -2747,28 +2835,17 @@ bool ProgrammePage::saveEncFile(const QString &filePath)
     EazyFileDialog::dossierProgramme() = QFileInfo(m_currentPath).absolutePath();
     qDebug() << "[EazyNC] .enc écrit :" << path;
 
-    // Générer le G-code UNE SEULE FOIS sur le thread principal
-    const QString baseName = QFileInfo(m_currentPath).baseName();
-    QVector<GCodeLine> generatedLines = buildGCode(m_blocks, baseName);
-    const QString pathCopy = m_currentPath;
-    const QVector<BlockData> blocksCopy = m_blocks;   // pour les sous-fichiers
-
-    // Écrire le .nc en arrière-plan (évite freeze UI)
-    // Le token évite que deux sauvegardes rapides écrivent dans le mauvais ordre.
-    const int myToken = s_ncWriteToken.fetchAndAddRelaxed(1) + 1;
-    QThreadPool::globalInstance()->start([generatedLines, pathCopy, blocksCopy, myToken](){
-        if (s_ncWriteToken.loadRelaxed() != myToken) {
-            qDebug() << "[EazyNC] writeNc annulé (double sauvegarde), token=" << myToken;
-            return;
+    // Le .enc seul : le G-code se génère avec le softkey « Générer G-code ».
+    // Si rien n'a changé depuis la dernière génération, le .nc reste valable :
+    // on le remet à la date du .enc pour qu'il soit repris à la prochaine ouverture.
+    if (m_gcodeAJour) {
+        const QString nc = QFileInfo(m_currentPath).absolutePath() + "/" + QFileInfo(m_currentPath).baseName() + ".nc";
+        QFile fn(nc);
+        if (fn.exists() && fn.open(QIODevice::ReadWrite)) {
+            fn.setFileTime(QDateTime::currentDateTime().addSecs(1), QFileDevice::FileModificationTime);
+            fn.close();
         }
-        writeNcFile(generatedLines, pathCopy);
-        // Écrire les sous-fichiers .cnc des contours dans le même dossier
-        writeContourSubFiles(blocksCopy, pathCopy);
-    });
-
-    // Mettre à jour ExecutionPage avec le même G-code
-    const QString name = QFileInfo(m_currentPath).fileName();
-    emit gCodeReady(m_blocks, generatedLines, name);
+    }
 
     // ── Overlay confirmation ─────────────────────────────────
     if (!m_saveOverlay) {
@@ -2776,11 +2853,11 @@ bool ProgrammePage::saveEncFile(const QString &filePath)
         m_saveOverlay->setAlignment(Qt::AlignCenter);
         m_saveOverlay->setStyleSheet(
             "QLabel{"
-            "  background:rgba(14,18,22,0.92);"
-            "  color:#000000;"
+            "  background:#ffffff;"
+            "  color:#1a1a1a;"
             "  font-family:'IBM Plex Mono',monospace;"
             "  font-size:10pt; font-weight:700;"
-            "  border:1px solid #3a8f34;"
+            "  border:2px solid #2a9a3a;"
             "  border-radius:6px;"
             "  padding:8px 20px;"
             "}");
@@ -2804,6 +2881,101 @@ bool ProgrammePage::saveEncFile(const QString &filePath)
 }
 
 // ─────────────────────────────────────────────────────────────
+//  Générer G-code (softkey) : calcul dans un autre fil, fenêtre
+//  « Calcul du G-code » animée, puis .nc + Exécution + Simulation.
+// ─────────────────────────────────────────────────────────────
+void ProgrammePage::afficherMessage(const QString &txt, int ms)
+{
+    if (!m_saveOverlay) {
+        m_saveOverlay = new QLabel(this);
+        m_saveOverlay->setAlignment(Qt::AlignCenter);
+        m_saveOverlay->setStyleSheet(
+            "QLabel{ background:#ffffff; color:#1a1a1a; font-family:'IBM Plex Mono',monospace;"
+            " font-size:10pt; font-weight:700; border:2px solid #2a9a3a; border-radius:6px; padding:8px 20px; }");
+    }
+    m_saveOverlay->setText(txt);
+    m_saveOverlay->adjustSize();
+    m_saveOverlay->setFixedHeight(44);
+    m_saveOverlay->move((width() - m_saveOverlay->width()) / 2, (height() - 44) / 2);
+    m_saveOverlay->show();
+    m_saveOverlay->raise();
+    QTimer::singleShot(ms, this, [this](){ if (m_saveOverlay) m_saveOverlay->hide(); });
+}
+
+bool ProgrammePage::genererGCode()
+{
+    saveCurrentBlock();
+    if (!saveEncFile(m_currentPath)) return false;          // demande un nom si nouveau programme
+
+    {   // Usinage 3D : finition dans de la matière non ébauchée ?
+        QStringList av;
+        for (const BlockData &b : std::as_const(m_blocks)) {
+            if (b.type != BlockType::Usinage3D) continue;
+            const QJsonArray ops = b.data["operations"].toArray();
+            for (int i = 0; i < ops.size(); ++i) {
+                const QString a = ops[i].toObject()["avertissement"].toString();
+                if (!a.isEmpty()) av << QString::fromUtf8("• %1 — opération %2 : %3").arg(b.name).arg(i + 1).arg(a);
+            }
+        }
+        if (!av.isEmpty()) {
+            QMessageBox mb(QMessageBox::Warning, QString::fromUtf8("Attention"),
+                           QString::fromUtf8("Une finition descend dans de la matière non ébauchée :\n\n%1\n\nGénérer le G-code quand même ?")
+                               .arg(av.join("\n")), QMessageBox::NoButton, this);
+            QPushButton *oui = mb.addButton(QString::fromUtf8("Oui"), QMessageBox::YesRole);
+            mb.addButton(QString::fromUtf8("Non"), QMessageBox::NoRole);
+            mb.exec();
+            if (mb.clickedButton() != oui) return false;
+        }
+    }
+
+    QStringList noms;
+    QVector<double> poids;                 // un bloc 3D pèse bien plus lourd qu'un cycle 2D
+    for (const BlockData &b : std::as_const(m_blocks)) {
+        noms << b.name;
+        poids << (b.type == BlockType::Usinage3D ? 20.0 : b.type == BlockType::BlkForm ? 0.05 : 1.0);
+    }
+    const QVector<BlockData> blocs = m_blocks;
+    const QString base = QFileInfo(m_currentPath).baseName();
+    QVector<GCodeLine> lignes;
+
+    Progression::raz();
+    CalculDialog dlg(noms, poids, this);
+    QThread *fil = QThread::create([&lignes, blocs, base]{ lignes = buildGCode(blocs, base); });
+    connect(fil, &QThread::finished, &dlg, [&dlg]{ dlg.terminer(); });
+    Progression::enCours = true;
+    fil->start();
+    dlg.exec();
+    fil->wait();
+    delete fil;
+    Progression::enCours = false;
+
+    if (Progression::annuler) {
+        Progression::raz();
+        afficherMessage(QString::fromUtf8("  Calcul du G-code annulé  "), 2000);
+        return false;
+    }
+    Progression::raz();
+    writeNcFile(lignes, m_currentPath);
+    emit gCodeReady(m_blocks, lignes, QFileInfo(m_currentPath).fileName());
+    setGcodeAJour(true);
+    afficherMessage(QString::fromUtf8("  ✓  G-code généré  ·  %1 lignes  ").arg(lignes.size()), 2000);
+    return true;
+}
+
+void ProgrammePage::setGcodeAJour(bool ok)
+{
+    if (m_gcodeAJour == ok) return;
+    m_gcodeAJour = ok;
+    emit gcodeAJourChanged(ok);
+}
+
+void ProgrammePage::marquerModifie()
+{
+    if (m_affichageBloc) return;          // remplissage de l'éditeur : pas une modification
+    setGcodeAJour(false);
+}
+
+// ─────────────────────────────────────────────────────────────
 //  onBlockSelected
 // ─────────────────────────────────────────────────────────────
 void ProgrammePage::onBlockSelected(int index)
@@ -2823,11 +2995,15 @@ void ProgrammePage::onBlockSelected(int index)
 // ─────────────────────────────────────────────────────────────
 void ProgrammePage::showBlockInEditor(int index)
 {
+    m_affichageBloc = true;
+    struct FinAffichage { bool &b; ~FinAffichage(){ b = false; } } finAff{m_affichageBloc};
     CrashHandler::log(QString("showBlockInEditor index=%1 type=%2")
                           .arg(index).arg((int)m_blocks.value(index).type));
     if (index < 0 || index >= m_blocks.size()) return;
     const BlockData &b = m_blocks[index];
 
+    // Colonne de droite : vue 3D pour les blocs 3D, aide pour tous les autres
+    modeVue3D(b.type == BlockType::Usinage3D);
     // Par défaut : cacher le schéma 3D (réaffiché seulement pour BlkForm)
     if (m_brutPreview) m_brutPreview->setVisible(false);
     if (m_helpAnim)    { m_helpAnim->stop(); m_helpAnim->setVisible(false); }
@@ -2891,6 +3067,7 @@ void ProgrammePage::showBlockInEditor(int index)
             m_u3d->setModeleBlk(blk3d);
         }
         m_u3d->charger(b.data);
+        m_u3d->majVueMaintenant();
         if (b.data.isEmpty() && m_currentIndex >= 0 && m_currentIndex < m_blocks.size())
             m_blocks[m_currentIndex].data = m_u3d->donnees();
     } else if (b.type == BlockType::Contour || b.type == BlockType::PocheContour) {
@@ -3218,6 +3395,7 @@ void ProgrammePage::updateSelectionHighlight()
 
 void ProgrammePage::addBlock(BlockData b)
 {
+    marquerModifie();
     int pos = (m_currentIndex>=0) ? m_currentIndex+1 : m_blocks.size();
     pos = qMax(pos, 1);
     m_blocks.insert(pos, b); refreshList(); m_list->setCurrentRow(pos);
@@ -3226,6 +3404,7 @@ void ProgrammePage::addBlock(BlockData b)
 // ─── Insertions ──────────────────────────────────────────────
 void ProgrammePage::insertBlkForm()
 {
+    marquerModifie();
     for (int i=0; i<m_blocks.size(); ++i)
         if (m_blocks[i].type==BlockType::BlkForm) { m_list->setCurrentRow(i); return; }
     BlockData b; b.id=m_nextId++; b.type=BlockType::BlkForm; b.name="BlkForm";
@@ -3293,6 +3472,7 @@ void ProgrammePage::copyBlock()
 }
 void ProgrammePage::pasteBlock()
 {
+    marquerModifie();
     if (m_clip.isEmpty()) return;
     saveCurrentBlock();
     int pos = (m_currentIndex >= 0) ? m_currentIndex + 1 : m_blocks.size();
@@ -3306,6 +3486,7 @@ void ProgrammePage::pasteBlock()
 }
 void ProgrammePage::cutBlock()
 {
+    marquerModifie();
     const QVector<int> rows = selectedRowsSorted();
     if (rows.isEmpty()) return;
     saveCurrentBlock();
@@ -3320,6 +3501,7 @@ void ProgrammePage::cutBlock()
 }
 void ProgrammePage::deleteBlock()
 {
+    marquerModifie();
     if(m_currentIndex<0||m_currentIndex>=m_blocks.size()) return;
     if(m_blocks[m_currentIndex].type==BlockType::BlkForm) return;
     m_blocks.removeAt(m_currentIndex); refreshList();
@@ -3327,6 +3509,7 @@ void ProgrammePage::deleteBlock()
 }
 void ProgrammePage::insertBlock()
 {
+    marquerModifie();
     if(m_currentIndex<0) return;
     BlockData b; b.id=m_nextId++; b.type=BlockType::Poche; b.name="Poche";
     int pos=qMax(1,m_currentIndex);
@@ -3359,4 +3542,34 @@ void ProgrammePage::keyPressEvent(QKeyEvent *event)
     case Qt::Key_Escape: if(m_selectionMode) cancelSelection(); break;
     default: QWidget::keyPressEvent(event);
     }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Vue 3D intégrée : seulement pour les blocs 3D. Les autres blocs
+//  gardent exactement l'écran d'avant (aide, largeurs 5/4 figées).
+// ─────────────────────────────────────────────────────────────
+void ProgrammePage::modeVue3D(bool on)
+{
+    if (!m_split3d || !m_col3) return;
+    if (!on && m_plein3D) pleinEcran3D(false);
+    m_en3D = on;
+    m_col3->setCurrentIndex(on ? 1 : 0);
+    if (QSplitterHandle *hd = m_split3d->handle(1)) { hd->setEnabled(on); hd->setVisible(on); }
+    const int total = qMax(900, m_split3d->width());
+    const QByteArray etat = QSettings("EazyNC", "EazyNC").value("vue3d/largeurs").toByteArray();
+    if (on && !etat.isEmpty()) m_split3d->restoreState(etat);
+    else m_split3d->setSizes({total * 5 / 9, total * 4 / 9});
+}
+
+void ProgrammePage::pleinEcran3D(bool on)
+{
+    m_plein3D = on && m_en3D;
+    if (m_leftPanel)  m_leftPanel->setVisible(!m_plein3D);
+    if (m_rightStack) m_rightStack->setVisible(!m_plein3D);
+    if (m_btnPlein) {
+        const QSignalBlocker sb(m_btnPlein);
+        m_btnPlein->setChecked(m_plein3D);
+        m_btnPlein->setText(m_plein3D ? QString::fromUtf8("⤡  Réduire") : QString::fromUtf8("⤢  Agrandir"));
+    }
+    if (m_vue3d) m_vue3d->setFocus();
 }

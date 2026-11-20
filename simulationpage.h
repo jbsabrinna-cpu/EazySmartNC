@@ -218,6 +218,9 @@ public:
 
     // Permet de définir le dossier où chercher les sous-fichiers (depuis mainwindow)
     void setNcDir(const QString &dir) { m_ncDir = dir; }
+    // Brut et rayon d'outil déduits du G-code (aussi pour la vue 3D de la page Exécution)
+    static StockData stockDepuisGcode(const QVector<GCodeLine> &l) { return inferStock(l); }
+    static double    rayonOutil(const QVector<GCodeLine> &l)       { return extractRTool(l); }
 
     // ── API softkeys ────────────────────────────────────────────
     void fitAll()            { if(m_view) m_view->fitAll(); if(m_plan2D) m_plan2D->fitAll(); }
@@ -267,6 +270,10 @@ protected:
 
         m_view=new Sim3DWidget;
         m_view->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Expanding);
+        connect(m_view, &Sim3DWidget::parcoursPret, this, [this]{
+            m_lblInfo->setText(m_infoVue + QString::fromUtf8("  —  ▶ Play pour simuler"));
+            qDebug() << "[SIM] vue 3D prete";
+        });
 
         // ── Vues 2D plan (dessin technique) ──────────────────
         m_plan2D = new Sim2DViews;
@@ -383,9 +390,11 @@ protected:
         if(!m_pendingGcode.isEmpty()){
             if(m_pendingStock.valid) m_view->setStock(m_pendingStock);
             updateLegend(m_pendingGcode);
-            m_view->buildMovesOnly(m_pendingGcode,extractRTool(m_pendingGcode));
             m_view->fitAll();
-            if(m_plan2D) m_plan2D->loadFromGCode(m_pendingGcode);
+            m_lblInfo->setText(QString::fromUtf8("Préparation de la vue 3D…"));
+            m_view->buildMovesOnlyAsync(m_pendingGcode,extractRTool(m_pendingGcode));
+            // Plan 2D : calculé seulement quand il est affiché (sinon au passage en Plan 2D)
+            if(m_plan2D && m_viewStack && m_viewStack->currentIndex()==1) m_plan2D->loadFromGCode(m_pendingGcode);
             m_pendingGcode.clear();
         }
     }
@@ -400,8 +409,10 @@ private slots:
         m_btnToggleView->setStyleSheet(btnS(goingTo2D ? "#EBEBEB" : "#EBEBEB",
                                             goingTo2D ? "#122a5a" : "#C8C8C8"));
         // Synchroniser les rapides
-        if(goingTo2D && m_plan2D && !m_lastGcode.isEmpty())
+        if(goingTo2D && m_plan2D && !m_lastGcode.isEmpty()){
             m_plan2D->loadFromGCode(m_lastGcode);
+            m_plan2D->fitAll();
+        }
     }
     void onPause() { if(m_view) m_view->pause(); }
     void onReset() {
@@ -464,6 +475,7 @@ private:
     bool                m_viewCreated=false;
     int                 m_highlightedRow=-1;
     QString             m_ncDir;   // dossier où chercher les sous-fichiers .cnc (M98)
+    QString             m_infoVue; // texte d'information du programme affiché
 
     Sim3DWidget   *m_view       =nullptr;
     Sim2DViews    *m_plan2D     =nullptr;
@@ -572,9 +584,11 @@ private:
     void loadIntoView(const StockData &stock,const QVector<GCodeLine> &gcode,
                       const QString &info)
     {
+        QElapsedTimer chronoVue; chronoVue.start();
         updateLegend(gcode);
         m_barHmap->setVisible(false);
         m_barAnim->setValue(0);
+        m_infoVue = info;
         m_lblInfo->setText(info+"  —  ▶ Play pour simuler");
         m_btnPlay->setVisible(true);
         m_btnPause->setVisible(false);
@@ -585,13 +599,16 @@ private:
                 m_view->onRebuildHeightmap();   // 🔥 reconstruction du solide
             }
 
-            m_view->buildMovesOnly(gcode, extractRTool(gcode));
             m_view->fitAll();
+            m_lblInfo->setText(QString::fromUtf8("Préparation de la vue 3D…"));
+            m_view->buildMovesOnlyAsync(gcode, extractRTool(gcode));   // lecture dans un autre fil : l'écran reste libre
 
-            if(m_plan2D){
+            qDebug() << "[SIM] brut + lancement lecture" << chronoVue.elapsed() << "ms";
+            if(m_plan2D && m_viewStack && m_viewStack->currentIndex()==1){   // sinon au passage en Plan 2D
                 m_plan2D->loadFromGCode(gcode);
                 m_plan2D->fitAll();
             }
+            qDebug() << "[SIM] vue plan 2D" << chronoVue.elapsed() << "ms";
         }
         else {
             m_pendingGcode = gcode;

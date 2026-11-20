@@ -16,6 +16,8 @@ Written in C++ / Qt 6 by a machinist, for machinists.
 > **Developer's test setup:** Intel Core i3-12100F, 16 GB RAM, NVIDIA RTX 3060 graphics card, Windows 11, Centroid CNC12 Acorn Mill v5.42.10 with an Acorn board.
 >
 > Not yet tried on lower-end PCs: with integrated graphics (Intel, AMD) or little memory, 3D simulation and 3D toolpath computation may be slow. An up-to-date graphics driver (OpenGL) is required.
+>
+> **Link with CNC12 (Centroid API):** the API calls have been fixed, and EazyNC can now load the program into CNC12. No machining test has been done with this link yet. Further fixes to the API calls are planned in the near future.
 
 ![Stepped pocket with islands, 3D simulation](docs/images/simulation-poche-etagee.gif)
 

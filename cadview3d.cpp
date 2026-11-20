@@ -64,6 +64,7 @@ CadView3D::~CadView3D()
     m_vboTri.destroy();
     m_vboArete.destroy();
     m_vboCouches.destroy();
+    m_vboPave.destroy();
     m_vboSel.destroy();
     m_vboCand.destroy();
     m_vboLigSel.destroy();
@@ -162,6 +163,10 @@ void CadView3D::majSelection()
         if (m_choisies.contains(m_triFace[t]))
             for (int k = 0; k < 18; ++k) m_sel << m_tri[t * 18 + k];
     m_nSel = m_sel.size() / 6;
+    for (int t = 0; t < m_triFace.size() && (t + 1) * 18 <= m_tri.size(); ++t)      // exclues : rouge
+        if (m_exclues.contains(m_triFace[t]))
+            for (int k = 0; k < 18; ++k) m_sel << m_tri[t * 18 + k];
+    m_nExcl = m_sel.size() / 6 - m_nSel;
     // faces possibles (planes horizontales, non choisies) puis face survolée
     m_cand.clear();
     if (m_selActive) {
@@ -222,29 +227,62 @@ int CadView3D::facePointee(const QPoint &pos, QVector3D *impact) const
     return best;
 }
 
-void CadView3D::setCouches(const QVector<Couche3D> &couches)
+void CadView3D::setCouches(const QVector<Couche3D> &ebauche)
+{
+    setCouches(ebauche, QVector<Couche3D>());
+}
+
+void CadView3D::setCouches(const QVector<Couche3D> &ebauche, const QVector<Couche3D> &finition)
 {
     m_couches.clear();
     m_plages.clear();
     int nPlanes = 0;
-    for (int i = 0; i < couches.size(); ++i) {
-        const Couche3D &c = couches[i];
+    auto ajouter = [&](const Couche3D &c, const Contours2D &cts, const QVector3D &col, int type) {
         const int debut = int(m_couches.size() / 6);
-        for (const Contour2D &ct : (c.aVider.isEmpty() ? c.ombre : c.aVider))
+        for (const Contour2D &ct : cts)
             for (int k = 0; k < ct.size(); ++k) {
                 const QPointF &a = ct[k], &b = ct[(k + 1) % ct.size()];
                 m_couches << float(a.x()) << float(a.y()) << float(c.z) << 0.f << 0.f << 1.f
                           << float(b.x()) << float(b.y()) << float(c.z) << 0.f << 0.f << 1.f;
             }
-        const float t = couches.size() > 1 ? float(i) / float(couches.size() - 1) : 0.f;
-        QVector3D col = c.facePlane ? QVector3D(1.0f, 0.62f, 0.15f)                 // face plane : orange
-                                    : QVector3D(0.15f + 0.1f * t, 0.85f - 0.45f * t, 1.0f);   // cyan -> bleu
+        m_plages.append({debut, int(m_couches.size() / 6) - debut, col, type});
+    };
+    for (const Couche3D &c : ebauche) {
         if (c.facePlane) ++nPlanes;
-        m_plages.append({debut, int(m_couches.size() / 6) - debut, col});
+        ajouter(c, c.aVider.isEmpty() ? c.ombre : c.aVider,
+                c.facePlane ? QVector3D(1.0f, 0.90f, 0.20f)        // fond plat : jaune
+                            : QVector3D(1.0f, 0.58f, 0.15f), 0);   // ébauche : orange
     }
-    m_infoCouches = couches.isEmpty() ? QString()
-        : QString::fromUtf8("   —   %1 couches (dont %2 sur fonds plats, en orange)")
-              .arg(couches.size()).arg(nPlanes);
+    for (const Couche3D &c : finition)
+        ajouter(c, c.ombre, QVector3D(0.25f, 0.88f, 0.40f), 1);  // finition : vert
+    m_infoCouches = (ebauche.isEmpty() && finition.isEmpty()) ? QString()
+        : QString::fromUtf8("   —   %1 couches d'ébauche (orange, %2 fonds plats en jaune), %3 de finition (vert)")
+              .arg(ebauche.size()).arg(nPlanes).arg(finition.size());
+    m_aTeleverser = true;
+    update();
+}
+
+void CadView3D::setAffichage(bool ebauche, bool finition, bool pave)
+{
+    m_voirEb = ebauche; m_voirFin = finition; m_voirPave = pave;
+    update();
+}
+
+void CadView3D::setPave(const QVector<QPointF> &ct, double z0, double z1)
+{
+    m_pave.clear();
+    if (ct.size() >= 3 && z1 > z0 + 1e-6) {
+        QPointF g(0, 0);
+        for (const QPointF &p : ct) g += p;
+        g /= ct.size();
+        auto som = [&](const QPointF &p, double z) { m_pave << float(p.x()) << float(p.y()) << float(z) << 0.f << 0.f << 1.f; };
+        for (int k = 0; k < ct.size(); ++k) {
+            const QPointF &a = ct[k], &b = ct[(k + 1) % ct.size()];
+            som(g, z1); som(a, z1); som(b, z1);                     // dessus (éventail)
+            som(a, z0); som(b, z0); som(b, z1);                     // côté
+            som(a, z0); som(b, z1); som(a, z1);
+        }
+    }
     m_aTeleverser = true;
     update();
 }
@@ -266,6 +304,7 @@ void CadView3D::initializeGL()
     m_vboTri.create();
     m_vboArete.create();
     m_vboCouches.create();
+    m_vboPave.create();
     m_vboSel.create();
     m_vboCand.create();
     m_vboLigSel.create();
@@ -287,6 +326,8 @@ void CadView3D::televerser()
     m_vboArete.allocate(m_aretes.constData(), int(m_aretes.size() * sizeof(float)));
     m_vboCouches.bind();
     m_vboCouches.allocate(m_couches.constData(), int(m_couches.size() * sizeof(float)));
+    m_vboPave.bind();
+    m_vboPave.allocate(m_pave.constData(), int(m_pave.size() * sizeof(float)));
     m_vboSel.bind();
     m_vboSel.allocate(m_sel.constData(), int(m_sel.size() * sizeof(float)));
     m_vboCand.bind();
@@ -378,13 +419,13 @@ void CadView3D::paintGL()
             glDepthFunc(GL_LESS);
         }
         // Faces choisies comme fonds : vert, par-dessus la pièce
-        if (m_nSel > 0) {
+        if (m_nSel + m_nExcl > 0) {
             glDepthFunc(GL_LEQUAL);
             m_vboSel.bind();
             m_prog.setAttributeBuffer(0, GL_FLOAT, 0, 3, 6 * sizeof(float));
             m_prog.setAttributeBuffer(1, GL_FLOAT, 3 * sizeof(float), 3, 6 * sizeof(float));
-            m_prog.setUniformValue("uCol", QVector3D(0.25f, 0.85f, 0.35f));
-            glDrawArrays(GL_TRIANGLES, 0, m_nSel);
+            if (m_nSel > 0) { m_prog.setUniformValue("uCol", QVector3D(0.25f, 0.85f, 0.35f)); glDrawArrays(GL_TRIANGLES, 0, m_nSel); }
+            if (m_nExcl > 0) { m_prog.setUniformValue("uCol", QVector3D(0.92f, 0.22f, 0.20f)); glDrawArrays(GL_TRIANGLES, m_nSel, m_nExcl); }
             glDepthFunc(GL_LESS);
         }
 
@@ -407,11 +448,27 @@ void CadView3D::paintGL()
             m_prog.setUniformValue("uLignes", 1.0f);
             for (const Plage &pl : m_plages) {
                 if (pl.nb <= 0) continue;
+                if ((pl.type == 0 && !m_voirEb) || (pl.type == 1 && !m_voirFin)) continue;
                 m_prog.setUniformValue("uCol", pl.col);
                 glDrawArrays(GL_LINES, pl.debut, pl.nb);
             }
             glLineWidth(1.0f);
             glEnable(GL_DEPTH_TEST);
+        }
+        // Pavé de surfaçage : bleu translucide (matière enlevée au-dessus de la pièce)
+        if (m_voirPave && m_pave.size() >= 18) {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glDepthMask(GL_FALSE);
+            m_vboPave.bind();
+            m_prog.setAttributeBuffer(0, GL_FLOAT, 0, 3, 6 * sizeof(float));
+            m_prog.setAttributeBuffer(1, GL_FLOAT, 3 * sizeof(float), 3, 6 * sizeof(float));
+            m_prog.setUniformValue("uLignes", 2.0f);
+            m_prog.setUniformValue("uAlpha", 0.22f);
+            m_prog.setUniformValue("uCol", QVector3D(0.35f, 0.55f, 1.0f));
+            glDrawArrays(GL_TRIANGLES, 0, int(m_pave.size() / 6));
+            glDepthMask(GL_TRUE);
+            glDisable(GL_BLEND);
         }
         // Brut (cyan) et origine pièce (X rouge, Y vert, Z bleu)
         if (m_aRepere && m_rep.size() >= 30 * 6) {
@@ -677,6 +734,17 @@ void CadView3D::mouseReleaseEvent(QMouseEvent *e)
     }
     if (!m_selActive || e->button() != Qt::LeftButton) return;
     if ((e->pos() - m_appui).manhattanLength() > 4) return;
+    if (m_modeExclure) {                                 // cavité : la face passe en rouge
+        const int t = facePointee(e->pos());
+        if (t < 0 || t >= m_triFace.size()) return;
+        const int f = m_triFace[t];
+        if (m_exclues.contains(f)) m_exclues.remove(f); else { m_exclues.insert(f); m_choisies.remove(f); }
+        m_msgSel = QString::fromUtf8("Cavités exclues : %1 face(s) en rouge — re-clic pour enlever").arg(m_exclues.size());
+        majSelection();
+        emit facesChanged();
+        update();
+        return;
+    }
     const int s = aretePointee(e->pos());
     if (s >= 0) {
         const QVector<int> b = boucle(s);
@@ -1078,4 +1146,19 @@ int CadView3D::sommetPointe(const QPoint &pos) const
         }
     }
     return best;
+}
+
+void CadView3D::setModeExclure(bool on)
+{
+    m_modeExclure = on;
+    m_msgSel = on ? QString::fromUtf8("EXCLURE : cliquez les faces des cavités (trous, rainures) — elles passent en rouge")
+                  : QString::fromUtf8("ZONE : cliquez une arête (toute la boucle) ou des faces — elles passent en vert");
+    update();
+}
+
+void CadView3D::setFacesExclues(const QSet<int> &f)
+{
+    m_exclues = f;
+    majSelection();
+    update();
 }

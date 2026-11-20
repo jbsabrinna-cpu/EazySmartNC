@@ -164,6 +164,7 @@ public:
     void setStock(const StockData &s);
     void setLines(const QVector<GCodeLine> &lines, double rDefault=3.0);
     void buildMovesOnly(const QVector<GCodeLine> &lines, double rDefault=3.0);
+    void buildMovesOnlyAsync(const QVector<GCodeLine> &lines, double rDefault=3.0);  // lecture dans un autre fil, puis parcoursPret()
     void clear();
 
     // ── Brut STEP OCC ─────────────────────────────────────────
@@ -254,6 +255,7 @@ public:
 
 signals:
     void progressChanged(int pct);
+    void parcoursPret();                // fin de buildMovesOnlyAsync
     void animProgressChanged(int pct);
     void playingChanged(bool playing);
     void currentLineChanged(int lineIdx);
@@ -439,6 +441,10 @@ private:
 
     // ── Méthodes privées — simulation ─────────────────────────
     void buildMoves(const QVector<GCodeLine> &lines, double rDefault);
+    struct Parcours { QVector<SimMove> moves; QVector<QVector3D> eb, fin; };
+    static Parcours calculerParcours(const QVector<GCodeLine> &lines, double rDefault);
+    void appliquerParcours(Parcours &&p);
+    int m_parcoursGen = 0;
     void buildHeightmapAsync(int upTo = -2, int res = -1);  // -2 = auto
     void buildHeightmapSync(int upTo=-1);  // upTo=-1 = tous les moves
     // Enlève la matière incrémentalement entre la dernière position
@@ -537,6 +543,7 @@ private:
     QVector<HmCkpt>   m_ckpts;
     QMutex            m_ckptMutex;
     std::atomic<int>  m_ckptGen{0};
+    std::atomic<int>  m_ckptFineProg{-1};   // avancement (%) du calcul fin de fond, -1 = pas en cours
     QFuture<void>     m_ckptFuture;
     int               m_ckptRes = 0;
     Heightmap         m_finalFine;           // pièce finie, grille fine (affichage instantané de « Fin »)

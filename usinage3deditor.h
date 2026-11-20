@@ -3,33 +3,17 @@
 // ═══════════════════════════════════════════════════════════════
 //  Usinage3DEditor — page de saisie du bloc « Usinage 3D »
 //
-//  Données du bloc (JSON, clés) :
-//    fichier      chemin du STEP / IGES
-//    modeUsin     0 = Ébauche + Finition, 1 = Ébauche, 2 = Finition
-//    outilEb      outil d'ébauche (numéro T)
-//    passeEb      profondeur de passe d'ébauche (mm) → couches Z
-//    recouvrement recouvrement d'ébauche (%)
-//    surepLat / surepFond  surépaisseurs laissées par l'ébauche (mm)
-//    outilFin     outil de finition (numéro T)
-//    passeFin     profondeur de passe de finition (mm)
-//    pasFin       pas latéral du balayage de finition (mm)
-//    sEb / avanceEb / avPlongeeEb      broche, avance, avance plongée ébauche
-//    modeSEb (0 S, 1 Vc) / modeAvanceEb, modeAvPlongeeEb (0 F, 1 Fu, 2 Fz)
-//    idem ...Fin pour la finition
-//    contoursZone boucles d'arêtes choisies [[x,y,z],...] -> limite de la zone
-//    facesZone    faces choisies (n° de face B-rep)
-//    zBas         Z bas de l'usinage (rempli au choix de la zone, modifiable)
-//    decoupeSous  descendre encore de ... sous le Z bas (mm)
-//    origPos 1..9 (pavé : 7 8 9 en haut), origRef 0 brut / 1 pièce,
-//    origZ 0 dessus brut / 1 dessus pièce / 2 dessous pièce
-//    brutMode 0 autour de la pièce / 1 dimensions fixes
-//    brutSx brutSy brutZp brutZm (autour), brutL brutW brutH (fixe)
-//    bbMin bbMax  encombrement du STEP ; origine, brutMin, brutMax (repère STEP)
-//    zBasModele   Z bas dans le repère du STEP (zBas = repère pièce)
-//    zFondsAuto   Z des faces planes horizontales (couches exprès), haut -> bas
+//  Données du bloc (JSON) :
+//    communes : fichier, origine / brut (BLK FORM figé), facesExclues
+//               (cavités rouges), zFondsAuto, bbMin / bbMax ...
+//    operations : liste ordonnée ; chacune = un cycle (type), un outil,
+//               ses paramètres et SA zone (facesZone, contoursZone,
+//               zBasModele, zBas, decoupeSous). Voir Usinage3DGenerator.
+//    Un ancien bloc (modeUsin + outilEb/outilFin...) est converti à la lecture.
 // ═══════════════════════════════════════════════════════════════
 #include <QWidget>
 #include <QJsonObject>
+#include <QJsonArray>
 
 class QLineEdit;
 class QLabel;
@@ -39,7 +23,13 @@ class QComboBox;
 class QButtonGroup;
 class QFormLayout;
 class QPushButton;
+class QListWidget;
+class QToolButton;
 class ModeUsinWidget;
+class CadView3D;
+class QTimer;
+struct CadDocument;
+#include <memory>
 
 class Usinage3DEditor : public QWidget
 {
@@ -53,6 +43,11 @@ public:
     void        setModeleBlk(const QJsonObject &m);
     bool        blkFige() const { return m_blk["verrou"].toBool() && !m_blk["fichier"].toString().isEmpty(); }
     QJsonObject donnees() const;
+    // Vue 3D intégrée à la page (colonne de droite) : zone cliquée, couches en direct
+    void        setVue(CadView3D *v);
+    void        majVueMaintenant();
+    // Barre des familles de cycles (posée au-dessus de la vue 3D par la page)
+    QWidget    *barreFamilles();
 
 signals:
     void dataChanged();
@@ -72,18 +67,51 @@ private:
     QDoubleSpinBox *champ(double val, double mini, double maxi, int dec, const QString &suffixe);
 
     bool m_chargement = false;
+    CadView3D *m_vue = nullptr;
+    QTimer    *m_tmrVue = nullptr;
+    std::shared_ptr<CadDocument> m_doc;
+    QString    m_docChemin;
+    bool       m_selAJour = false;         // zone de la vue à recharger depuis le bloc
+    void majVue();
+    void zoneDepuisVue();
     QJsonObject m_blk;
     QList<QWidget*> m_lignesOrig;          // section origine / brut propre au bloc (cachée)
     QPushButton *m_bParc = nullptr;
     QJsonObject m_d;                       // garde les clés non éditées ici (faces...)
 
-    ModeUsinWidget *m_mode = nullptr;
+    // ── Opérations ──
+    QJsonArray   m_ops;                    // opérations du bloc (l'opération courante est dans les champs)
+    int          m_opCour = -1;
+    bool         m_majListe = false;
+    QListWidget *m_listeOps = nullptr;
+    QWidget     *m_grpEb = nullptr, *m_grpFin = nullptr;
+    QLabel      *m_titreOp = nullptr, *m_infoZoneOp = nullptr;
+    QWidget     *m_barreFam = nullptr;
+    QPushButton *m_bHaut = nullptr, *m_bBas = nullptr, *m_bDup = nullptr, *m_bSuppr = nullptr;
+    void ajouterOperation(const QString &type);
+    void ajouterEbaucheFinition();
+    void choisirOperation(int i);
+    void majListeOps();
+    void sauverOpCourante();
+    void chargerOp(const QJsonObject &op);
+    QJsonObject opDepuisChamps(const QJsonObject &base) const;
+    QJsonObject opCourante() const;
+    QJsonObject opParDefaut(const QString &type) const;
+    int  premiereOp(bool ebauche) const;
     QLineEdit *m_fichier = nullptr;
     QLabel    *m_infoFichier = nullptr;
     QLineEdit *m_outilEb = nullptr;  QLabel *m_nomEb = nullptr;
     QLineEdit *m_outilFin = nullptr; QLabel *m_nomFin = nullptr;
     QDoubleSpinBox *m_passeEb = nullptr, *m_surepLat = nullptr, *m_surepFond = nullptr;
     QDoubleSpinBox *m_passeFin = nullptr, *m_pasFin = nullptr;
+    QComboBox *m_stratFin = nullptr;
+    QDoubleSpinBox *m_angleSep = nullptr;
+    class QCheckBox *m_cbProf = nullptr; QDoubleSpinBox *m_passeProf = nullptr;   // balayage : passes en profondeur                    // finition mixte : pente de séparation
+    class QCheckBox *m_cbEb = nullptr, *m_cbFin = nullptr, *m_cbPave = nullptr;   // « Afficher »
+    QPushButton *m_bModeZone = nullptr, *m_bModeExcl = nullptr;
+    QPushButton *m_bRecalc = nullptr;
+    bool m_couchesCachees = false;      // sélection en cours : couches masquées
+    void cacherCouches();
     QDoubleSpinBox *m_zBas = nullptr, *m_decoupe = nullptr;
     double m_zBasModele = 0.0;             // Z bas dans le repère du STEP
     // origine pièce + brut

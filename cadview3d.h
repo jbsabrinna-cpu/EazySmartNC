@@ -12,6 +12,7 @@
 #include <QOpenGLBuffer>
 #include <QMatrix4x4>
 #include <QVector3D>
+#include <QPointF>
 #include <QPoint>
 #include <QSet>
 #include <QMap>
@@ -27,7 +28,12 @@ public:
     ~CadView3D() override;
 
     void setDocument(const CadDocument &doc);
-    void setCouches(const QVector<Couche3D> &couches);   // vide = effacer
+    // Couches d'ébauche (orange, fonds plats jaunes) et de finition (vert) ; vide = effacer
+    void setCouches(const QVector<Couche3D> &ebauche);
+    void setCouches(const QVector<Couche3D> &ebauche, const QVector<Couche3D> &finition);
+    void setAffichage(bool ebauche, bool finition, bool pave);   // cases « Afficher »
+    // Pavé de surfaçage : contour XY de la zone, de z0 (dessus pièce) à z1 (dessus brut)
+    void setPave(const QVector<QPointF> &contour, double z0, double z1);
     void vueIso();
     void vueDessus();
     void vueFace();
@@ -42,6 +48,10 @@ public:
     void setSelectionFaces(bool actif);
     void setFacesChoisies(const QSet<int> &faces);
     QSet<int> facesChoisies() const { return m_choisies; }
+    // Cavités exclues (rouge) : clic sur une face en mode « exclure »
+    void setModeExclure(bool on);
+    void setFacesExclues(const QSet<int> &f);
+    QSet<int> facesExclues() const { return m_exclues; }
     double zFace(int face) const { return m_zFace.value(face, 0.0); }
     QList<double> zFondsPlats() const { return m_zFace.values(); }   // faces planes horizontales
     // contours choisis : boucles ordonnées de points 3D
@@ -102,7 +112,10 @@ private:
     QVector<float> m_tri, m_aretes;
     QOpenGLBuffer m_vboCouches{QOpenGLBuffer::VertexBuffer};
     QVector<float> m_couches;
-    struct Plage { int debut, nb; QVector3D col; };
+    struct Plage { int debut, nb; QVector3D col; int type; };   // type 0 ébauche, 1 finition
+    bool m_voirEb = true, m_voirFin = true, m_voirPave = true;
+    QVector<float> m_pave;
+    QOpenGLBuffer m_vboPave{QOpenGLBuffer::VertexBuffer};
     QVector<Plage> m_plages;
     QString m_infoCouches;
     int  m_nTri = 0, m_nArete = 0;
@@ -122,6 +135,9 @@ private:
     QMap<int, double> m_zFace;             // faces planes horizontales -> Z
     bool m_selActive = false;
     QSet<int> m_choisies;
+    QSet<int> m_exclues;
+    bool m_modeExclure = false;
+    int  m_nExcl = 0;
     QOpenGLBuffer m_vboSel{QOpenGLBuffer::VertexBuffer};
     QVector<float> m_sel;
     int m_nSel = 0;

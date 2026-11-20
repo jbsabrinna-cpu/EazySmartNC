@@ -1,782 +1,748 @@
 #pragma execution_character_set("utf-8")
 #include "executionpage.h"
+#include "sim3dwidget.h"
+#include "simulationpage.h"
+#include "Ncfileparser.h"
 
-#include <QHBoxLayout>
-#include <QVBoxLayout>
+#include <QBoxLayout>
 #include <QGridLayout>
 #include <QFrame>
-#include <QFileDialog>
+#include <QLabel>
+#include <QPushButton>
+#include <QListWidget>
+#include <QListView>
+#include <QStringListModel>
+#include <QStackedWidget>
+#include <QProgressBar>
+#include <QRegularExpression>
 #include <QFileInfo>
-#include <QFile>
-#include <QTextStream>
-#include <QDir>
-#include <QFont>
-#include <QScrollBar>
+#include <QMessageBox>
+#include <QShowEvent>
+#include <QTimer>
+#include <QDateTime>
+#include <cmath>
+#include <QDebug>
 
-// ═══════════════════════════════════════════════════════════════
-//  Helpers style
-// ═══════════════════════════════════════════════════════════════
-QLabel* ExecutionPage::makeDroLabel(const QString &init)
+// ── Couleurs du site ────────────────────────────────────────────
+static const char *VERT  = "#A6CE39";
+static const char *VERT2 = "#00B400";
+
+static QString styleCarte()
 {
-    auto *l = new QLabel(init);
-    l->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    l->setStyleSheet(
-        "QLabel{"
-        "  background:#FFFFFF; color:#0000FF;"
-        "  border:1px solid rgba(255,255,255,0.07); border-radius:3px;"
-        "  font-family:Consolas;"
-        "  font-size:19px; font-weight:700; padding:2px 6px;"
-        "  min-width:130px; min-height:30px;"
-        "}");
-    return l;
+    return QString(
+        "QFrame[carte=\"true\"]{background:#F7F8F7;border:1px solid %1;border-radius:6px;}"
+        "QLabel{background:transparent;border:none;color:#1E241E;}"
+        "QLabel[titre=\"true\"]{font-size:9pt;font-weight:bold;letter-spacing:2px;color:#6B746B;}"
+        "QLabel[sous=\"true\"]{font-size:9pt;color:#6B746B;}"
+        "QProgressBar{background:#DDE1DD;border:none;border-radius:3px;max-height:6px;min-height:6px;}"
+        "QProgressBar::chunk{background:%1;border-radius:3px;}").arg(VERT);
 }
 
-QLabel* ExecutionPage::makeSectionLabel(const QString &t)
+static QFrame *carte(QWidget *parent = nullptr)
 {
-    auto *l = new QLabel(t);
-    l->setStyleSheet(
-        "QLabel{color:rgba(255,255,255,0.25);font-size:8px;"
-        "font-weight:700;letter-spacing:2px;background:transparent;}");
-    return l;
-}
-
-QLabel* ExecutionPage::makeAxisLabel(const QString &t)
-{
-    auto *l = new QLabel(t);
-    l->setStyleSheet(
-        "QLabel{color:rgba(255,255,255,0.5);font-size:12px;"
-        "font-weight:700;background:transparent;}");
-    l->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    l->setMinimumWidth(18);
-    return l;
-}
-
-QPushButton* ExecutionPage::makeJogBtn(const QString &label, const QString &color)
-{
-    auto *b = new QPushButton(label);
-    b->setFixedSize(52, 40);
-    b->setStyleSheet(QString(
-                         "QPushButton{"
-                         "  background:%1;border:1px solid rgba(255,255,255,0.12);"
-                         "  border-radius:4px;color:#000000;"
-                         "  font-family:Consolas;font-size:10px;font-weight:700;"
-                         "}"
-                         "QPushButton:pressed{background:#00AA00;border-color:#505050;color:#FFFFFF;}").arg(color));
-    return b;
-}
-
-QPushButton* ExecutionPage::makeCycleBtn(const QString &label,
-                                         const QString &bg,
-                                         const QString &border,
-                                         const QString &color)
-{
-    auto *b = new QPushButton(label);
-    b->setFixedHeight(34);
-    b->setStyleSheet(QString(
-                         "QPushButton{"
-                         "  background:%1;border:2px solid %2;border-radius:4px;"
-                         "  color:%3;font-family:Consolas;"
-                         "  font-size:10px;font-weight:700;letter-spacing:1px;padding:0 8px;"
-                         "}"
-                         "QPushButton:pressed{border-width:3px;}").arg(bg, border, color));
-    return b;
-}
-
-static QFrame* makeSepH()
-{
-    auto *f = new QFrame;
-    f->setFrameShape(QFrame::HLine);
-    f->setFixedHeight(1);
-    f->setStyleSheet("QFrame{background:rgba(255,255,255,0.06);}");
+    auto *f = new QFrame(parent);
+    f->setProperty("carte", true);
     return f;
+}
+
+static QLabel *titre(const QString &t)
+{
+    auto *l = new QLabel(t);
+    l->setProperty("titre", true);
+    return l;
+}
+
+static QString fmt(double v) { return QString::asprintf("%+.3f", v); }
+
+static QString duree(qint64 s)
+{
+    if (s < 0) s = 0;
+    return QString::asprintf("%d:%02d:%02d", int(s / 3600), int(s / 60 % 60), int(s % 60));
 }
 
 // ═══════════════════════════════════════════════════════════════
 ExecutionPage::ExecutionPage(QWidget *parent) : QWidget(parent)
-{ setupUi(); }
-
-// ─────────────────────────────────────────────────────────────
-void ExecutionPage::setupUi()
 {
-    setStyleSheet("ExecutionPage{background:#D6D6D6;}");
-    auto *root = new QHBoxLayout(this);
-    root->setContentsMargins(0,0,0,0);
-    root->setSpacing(0);
-
-    // Colonne gauche : DRO + VCP + messages
-    auto *leftCol = new QWidget;
-    leftCol->setFixedWidth(290);
-    leftCol->setStyleSheet("background:#C8C8C8;border-right:1px solid #808080;");
-    auto *leftLay = new QVBoxLayout(leftCol);
-    leftLay->setContentsMargins(0,0,0,0);
-    leftLay->setSpacing(0);
-    setupLeftPanel(leftCol);
-    root->addWidget(leftCol);
-
-    // Colonne droite
-    auto *rightCol = new QWidget;
-    auto *rightLay = new QVBoxLayout(rightCol);
-    rightLay->setContentsMargins(0,0,0,0);
-    rightLay->setSpacing(0);
-    setupRightPanel(rightCol);
-    root->addWidget(rightCol, 1);
+    construire();
 }
 
-// ─────────────────────────────────────────────────────────────
-//  COLONNE GAUCHE
-// ─────────────────────────────────────────────────────────────
-void ExecutionPage::setupLeftPanel(QWidget *col)
+void ExecutionPage::construire()
 {
-    auto *lay = qobject_cast<QVBoxLayout*>(col->layout());
+    setObjectName("execPage");
+    setAttribute(Qt::WA_StyledBackground, true);
+    setStyleSheet("#execPage{background:#E4E6E4;}" + styleCarte());
 
-    // En-tête
-    {
-        auto *w = new QWidget; w->setFixedHeight(30);
-        w->setStyleSheet("background:#EAEAEA;border-bottom:1px solid #808080;");
-        auto *h = new QHBoxLayout(w); h->setContentsMargins(10,0,10,0);
-        auto *lbl = new QLabel("EXECUTION");
-        lbl->setStyleSheet("color:#606060;font-size:9pt;font-weight:bold;"
-                           "font-weight:700;letter-spacing:3px;background:transparent;");
-        m_lblTool = new QLabel("T- H-");
-        m_lblTool->setStyleSheet("color:#0000FF;font-size:9pt;font-weight:bold;"
-                                 "font-family:Consolas;background:transparent;");
-        m_lblTool->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
-        h->addWidget(lbl); h->addWidget(m_lblTool);
-        lay->addWidget(w);
+    auto *racine = new QHBoxLayout(this);
+    racine->setContentsMargins(8, 8, 8, 8);
+    racine->setSpacing(8);
+
+    // ════ Colonne gauche : position, outil, pupitre ════════════════
+    m_colG = new QWidget;
+    m_colG->setFixedWidth(300);
+    auto *g = new QVBoxLayout(m_colG);
+    g->setContentsMargins(0, 0, 0, 0);
+    g->setSpacing(8);
+
+    {   // Position
+        auto *c = carte();
+        auto *v = new QVBoxLayout(c);
+        v->setContentsMargins(12, 10, 12, 10);
+        v->setSpacing(0);
+        m_titrePos = titre(QString::fromUtf8("POSITION · PIÈCE"));
+        v->addWidget(m_titrePos);
+        const char *noms[3] = {"X", "Y", "Z"};
+        const char *coul[3] = {"#C82020", "#1D8A2A", "#2050C8"};
+        for (int a = 0; a < 3; ++a) {
+            auto *h = new QHBoxLayout;
+            auto *n = new QLabel(noms[a]);
+            n->setStyleSheet(QString("font-family:Consolas,monospace;font-size:24pt;font-weight:bold;color:%1;").arg(coul[a]));
+            m_ax[a] = new QLabel("+0.000");
+            m_ax[a]->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            m_ax[a]->setStyleSheet("font-family:Consolas,monospace;font-size:26pt;font-weight:bold;");
+            h->addWidget(n);
+            h->addWidget(m_ax[a], 1);
+            v->addLayout(h);
+        }
+        auto *seg = new QHBoxLayout;
+        seg->setSpacing(4);
+        const char *modes[3] = {"Machine", "Pièce", "Reste"};
+        for (int i = 0; i < 3; ++i) {
+            m_seg[i] = new QPushButton(QString::fromUtf8(modes[i]));
+            m_seg[i]->setCheckable(true);
+            m_seg[i]->setFocusPolicy(Qt::NoFocus);
+            m_seg[i]->setStyleSheet(QString(
+                "QPushButton{background:#fff;border:1px solid #C9CEC9;border-radius:4px;padding:5px 0;color:#6B746B;font-size:9pt;}"
+                "QPushButton:checked{border:1px solid %1;border-bottom:3px solid %1;color:#1E241E;font-weight:bold;}").arg(VERT));
+            connect(m_seg[i], &QPushButton::clicked, this, [this, i]{ m_modePos = i; majPositions(); });
+            seg->addWidget(m_seg[i]);
+        }
+        v->addSpacing(8);
+        v->addLayout(seg);
+        g->addWidget(c);
     }
-
-    // DRO WORK
-    {
-        auto *w = new QWidget; w->setStyleSheet("background:#D6D6D6;border-bottom:1px solid #505050;");
-        auto *g = new QGridLayout(w);
-        g->setContentsMargins(8,5,8,3); g->setHorizontalSpacing(5); g->setVerticalSpacing(3);
-        g->addWidget(makeSectionLabel("WORK (G54)"),0,0,1,2);
-        m_droWX = makeDroLabel(); m_droWY = makeDroLabel(); m_droWZ = makeDroLabel();
-        g->addWidget(makeAxisLabel("X"),1,0); g->addWidget(m_droWX,1,1);
-        g->addWidget(makeAxisLabel("Y"),2,0); g->addWidget(m_droWY,2,1);
-        g->addWidget(makeAxisLabel("Z"),3,0); g->addWidget(m_droWZ,3,1);
-        lay->addWidget(w);
+    {   // Outil + avance / broche
+        auto *c = carte();
+        auto *v = new QVBoxLayout(c);
+        v->setContentsMargins(12, 10, 12, 10);
+        v->setSpacing(4);
+        v->addWidget(titre("OUTIL"));
+        m_lblOutil = new QLabel("T-");
+        m_lblOutil->setStyleSheet("font-size:12pt;font-weight:bold;");
+        v->addWidget(m_lblOutil);
+        auto *hf = new QHBoxLayout;
+        m_lblF = new QLabel("F 0 mm/min");
+        m_lblFo = new QLabel("100 %");
+        hf->addWidget(m_lblF, 1);
+        hf->addWidget(m_lblFo);
+        v->addLayout(hf);
+        m_barF = new QProgressBar;
+        m_barF->setRange(0, 150);
+        m_barF->setTextVisible(false);
+        v->addWidget(m_barF);
+        m_lblS = new QLabel("S 0 tr/min");
+        v->addWidget(m_lblS);
+        g->addWidget(c);
     }
-    lay->addWidget(makeSepH());
-
-    // DRO DTG
-    {
-        auto *w = new QWidget; w->setStyleSheet("background:#D6D6D6;border-bottom:1px solid #505050;");
-        auto *g = new QGridLayout(w);
-        g->setContentsMargins(8,3,8,3); g->setHorizontalSpacing(5); g->setVerticalSpacing(2);
-        g->addWidget(makeSectionLabel("DTG"),0,0,1,2);
-        m_droDX = makeDroLabel("0.0000"); m_droDY = makeDroLabel("0.0000"); m_droDZ = makeDroLabel("0.0000");
-        auto dtgStyle = [](const QString &s){ return QString(s).replace("#00AA00","#0000FF"); };
-        m_droDX->setStyleSheet(dtgStyle(m_droDX->styleSheet()));
-        m_droDY->setStyleSheet(dtgStyle(m_droDY->styleSheet()));
-        m_droDZ->setStyleSheet(dtgStyle(m_droDZ->styleSheet()));
-        g->addWidget(makeAxisLabel("X"),1,0); g->addWidget(m_droDX,1,1);
-        g->addWidget(makeAxisLabel("Y"),2,0); g->addWidget(m_droDY,2,1);
-        g->addWidget(makeAxisLabel("Z"),3,0); g->addWidget(m_droDZ,3,1);
-        lay->addWidget(w);
-    }
-    lay->addWidget(makeSepH());
-
-    // DRO MACHINE
-    {
-        auto *w = new QWidget; w->setStyleSheet("background:#D6D6D6;border-bottom:1px solid #505050;");
-        auto *g = new QGridLayout(w);
-        g->setContentsMargins(8,3,8,3); g->setHorizontalSpacing(5); g->setVerticalSpacing(2);
-        g->addWidget(makeSectionLabel("MACHINE"),0,0,1,2);
-        m_droMX = makeDroLabel(); m_droMY = makeDroLabel(); m_droMZ = makeDroLabel();
-        const QString mc = "rgba(255,255,255,0.35)";
-        m_droMX->setStyleSheet(m_droMX->styleSheet().replace("#00AA00",mc));
-        m_droMY->setStyleSheet(m_droMY->styleSheet().replace("#00AA00",mc));
-        m_droMZ->setStyleSheet(m_droMZ->styleSheet().replace("#00AA00",mc));
-        g->addWidget(makeAxisLabel("X"),1,0); g->addWidget(m_droMX,1,1);
-        g->addWidget(makeAxisLabel("Y"),2,0); g->addWidget(m_droMY,2,1);
-        g->addWidget(makeAxisLabel("Z"),3,0); g->addWidget(m_droMZ,3,1);
-        lay->addWidget(w);
-    }
-    lay->addWidget(makeSepH());
-
-    // S + F
-    {
-        auto *w = new QWidget; w->setStyleSheet("background:#D6D6D6;border-bottom:1px solid #505050;");
-        auto *g = new QGridLayout(w);
-        g->setContentsMargins(8,3,8,3); g->setSpacing(3);
-        auto makeSF = [](const QString &init, const QString &color){
-            auto *l = new QLabel(init);
-            l->setStyleSheet(QString("QLabel{background:#0e1216;color:%1;"
-                                     "border:1px solid rgba(255,255,255,0.07);border-radius:3px;"
-                                     "font-family:Consolas;font-size:11px;font-weight:700;"
-                                     "padding:2px 5px;min-width:70px;}").arg(color));
-            l->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
-            return l;
-        };
-        g->addWidget(makeSectionLabel("S"),0,0);
-        m_lblRpm     = makeSF("0 tr/min","#CC8800"); g->addWidget(m_lblRpm,0,1);
-        m_lblSpinOvr = makeSF("100%","#CC8800");     g->addWidget(m_lblSpinOvr,0,2);
-        g->addWidget(makeSectionLabel("F"),1,0);
-        m_lblFeed    = makeSF("0 mm/min","#0000FF"); g->addWidget(m_lblFeed,1,1);
-        m_lblFeedOvr = makeSF("100%","#0000FF");     g->addWidget(m_lblFeedOvr,1,2);
-        lay->addWidget(w);
-    }
-    lay->addWidget(makeSepH());
-
-    // JOG AXES
-    {
-        auto *w = new QWidget; w->setStyleSheet("background:#D6D6D6;border-bottom:1px solid #505050;");
-        auto *g = new QGridLayout(w);
-        g->setContentsMargins(8,5,8,5); g->setSpacing(3);
-        g->addWidget(makeSectionLabel("JOG AXES"),0,0,1,4);
-        auto *bYP=makeJogBtn("Y+"); auto *bYM=makeJogBtn("Y-");
-        auto *bXP=makeJogBtn("X+"); auto *bXM=makeJogBtn("X-");
-        auto *bZP=makeJogBtn("Z+","#1a2d1a"); auto *bZM=makeJogBtn("Z-","#2d1a1a");
-        bZP->setStyleSheet(bZP->styleSheet().replace("color:#c8d4f0","color:#00AA00"));
-        bZM->setStyleSheet(bZM->styleSheet().replace("color:#c8d4f0","color:#CC0000"));
-        g->addWidget(bYP,1,1); g->addWidget(bZP,1,3);
-        g->addWidget(bXM,2,0); g->addWidget(bXP,2,2);
-        g->addWidget(bYM,3,1); g->addWidget(bZM,3,3);
-        connect(bXP,&QPushButton::pressed, this,[this](){emit jogXPlus(true);});
-        connect(bXP,&QPushButton::released,this,[this](){emit jogXPlus(false);});
-        connect(bXM,&QPushButton::pressed, this,[this](){emit jogXMinus(true);});
-        connect(bXM,&QPushButton::released,this,[this](){emit jogXMinus(false);});
-        connect(bYP,&QPushButton::pressed, this,[this](){emit jogYPlus(true);});
-        connect(bYP,&QPushButton::released,this,[this](){emit jogYPlus(false);});
-        connect(bYM,&QPushButton::pressed, this,[this](){emit jogYMinus(true);});
-        connect(bYM,&QPushButton::released,this,[this](){emit jogYMinus(false);});
-        connect(bZP,&QPushButton::pressed, this,[this](){emit jogZPlus(true);});
-        connect(bZP,&QPushButton::released,this,[this](){emit jogZPlus(false);});
-        connect(bZM,&QPushButton::pressed, this,[this](){emit jogZMinus(true);});
-        connect(bZM,&QPushButton::released,this,[this](){emit jogZMinus(false);});
-        lay->addWidget(w);
-    }
-
-    // PAS + MODE
-    {
-        auto *w = new QWidget; w->setStyleSheet("background:#D6D6D6;border-bottom:1px solid #505050;");
-        auto *h = new QHBoxLayout(w);
-        h->setContentsMargins(8,3,8,3); h->setSpacing(3);
-        auto mk=[](const QString &t){
-            auto *b=new QPushButton(t); b->setFixedHeight(28);
-            b->setStyleSheet(
-                "QPushButton{background:#EBEBEB;border:1px solid #808080;"
-                "border-radius:3px;color:rgba(200,212,240,0.55);"
-                "font-family:Consolas;font-size:8px;font-weight:700;}"
-                "QPushButton:pressed{background:#00AA00;color:#FFFFFF;border-color:#505050;}");
+    {   // Pupitre
+        auto *c = carte();
+        auto *v = new QVBoxLayout(c);
+        v->setContentsMargins(12, 10, 12, 10);
+        v->setSpacing(6);
+        v->addWidget(titre("PUPITRE"));
+        auto *gr = new QHBoxLayout;
+        gr->setSpacing(6);
+        auto bouton = [](const QString &ic, const QString &txt, const char *coul, const char *bord) {
+            auto *b = new QPushButton(ic + "\n" + txt);
+            b->setFocusPolicy(Qt::NoFocus);
+            b->setMinimumHeight(62);
+            b->setStyleSheet(QString(
+                "QPushButton{background:#fff;border:2px solid %2;border-radius:6px;color:%1;font-weight:bold;font-size:10pt;}"
+                "QPushButton:pressed{background:#EEF6DC;}").arg(coul, bord));
             return b;
         };
-        auto *bIC=mk("INC/CONT"); auto *bR=mk("RAPIDE");
-        auto *b1=mk("x1"); auto *b10=mk("x10"); auto *b100=mk("x100");
-        h->addWidget(bIC); h->addWidget(bR);
-        h->addWidget(b1); h->addWidget(b10); h->addWidget(b100);
-        connect(bIC, &QPushButton::clicked,this,[this](){emit incContToggled();});
-        connect(bR,  &QPushButton::clicked,this,[this](){emit rapidToggled();});
-        connect(b1,  &QPushButton::clicked,this,[this](){emit setX1();});
-        connect(b10, &QPushButton::clicked,this,[this](){emit setX10();});
-        connect(b100,&QPushButton::clicked,this,[this](){emit setX100();});
-        lay->addWidget(w);
+        auto *depart = bouton(QString::fromUtf8("▶"), QString::fromUtf8("Départ"), "#007A00", VERT);
+        auto *arret  = bouton(QString::fromUtf8("❚❚"), QString::fromUtf8("Arrêt av."), "#B07000", "#E0B040");
+        auto *stop   = bouton(QString::fromUtf8("■"), "Stop", "#C02020", "#E06060");
+        depart->setToolTip(QString::fromUtf8("Départ cycle : lance le programme chargé dans CNC12"));
+        arret->setToolTip(QString::fromUtf8("Arrêt d'avance (feed hold)"));
+        stop->setToolTip(QString::fromUtf8("Arrêt du cycle"));
+        connect(depart, &QPushButton::clicked, this, &ExecutionPage::cycleStartRequested);
+        connect(arret,  &QPushButton::clicked, this, &ExecutionPage::feedHoldRequested);
+        connect(stop,   &QPushButton::clicked, this, &ExecutionPage::cycleStopRequested);
+        gr->addWidget(depart);
+        gr->addWidget(arret);
+        gr->addWidget(stop);
+        v->addLayout(gr);
+        auto *raz = new QPushButton("Reset");
+        raz->setFocusPolicy(Qt::NoFocus);
+        raz->setToolTip(QString::fromUtf8("Reset CNC12 (efface l'alarme)"));
+        raz->setStyleSheet(QString("QPushButton{background:#fff;border:1px solid %1;border-radius:5px;padding:6px;font-size:9pt;}"
+                                   "QPushButton:pressed{background:#EEF6DC;}").arg(VERT));
+        connect(raz, &QPushButton::clicked, this, &ExecutionPage::resetRequested);
+        v->addWidget(raz);
+        g->addWidget(c);
     }
-    lay->addWidget(makeSepH());
+    g->addStretch(1);
+    racine->addWidget(m_colG);
 
-    // AVANCE OVERRIDE
+    // ════ Colonne centrale : programme ═════════════════════════════
+    m_colC = new QWidget;
+    m_colC->setFixedWidth(430);
+    auto *cc = new QVBoxLayout(m_colC);
+    cc->setContentsMargins(0, 0, 0, 0);
+    cc->setSpacing(8);
     {
-        auto *w = new QWidget; w->setStyleSheet("background:#D6D6D6;border-bottom:1px solid #505050;");
-        auto *h = new QHBoxLayout(w);
-        h->setContentsMargins(8,3,8,3); h->setSpacing(3);
-        auto *lbl=makeSectionLabel("AVANCE"); lbl->setMinimumWidth(45);
-        auto *bFM=makeJogBtn("F-","#1a2040"); auto *bFP=makeJogBtn("F+","#1a2040");
-        auto *bFH=makeCycleBtn("FEED\nHOLD","#3d3000","#CC8800","#CC8800");
-        bFP->setStyleSheet(bFP->styleSheet().replace("color:#c8d4f0","color:#0000FF"));
-        bFM->setStyleSheet(bFM->styleSheet().replace("color:#c8d4f0","color:#0000FF"));
-        bFH->setFixedSize(60,40);
-        h->addWidget(lbl); h->addWidget(bFM); h->addWidget(bFP);
-        h->addStretch(); h->addWidget(bFH);
-        connect(bFP,&QPushButton::pressed, this,[this](){emit feedPlusPressed(true);});
-        connect(bFP,&QPushButton::released,this,[this](){emit feedPlusPressed(false);});
-        connect(bFM,&QPushButton::pressed, this,[this](){emit feedMinusPressed(true);});
-        connect(bFM,&QPushButton::released,this,[this](){emit feedMinusPressed(false);});
-        connect(bFH,&QPushButton::clicked, this,[this](){emit feedHoldRequested();});
-        lay->addWidget(w);
-    }
-
-    // BROCHE
-    {
-        auto *w = new QWidget; w->setStyleSheet("background:#D6D6D6;border-bottom:1px solid #505050;");
-        auto *h = new QHBoxLayout(w);
-        h->setContentsMargins(8,3,8,3); h->setSpacing(3);
-        auto *lbl=makeSectionLabel("BROCHE"); lbl->setMinimumWidth(45);
-        auto *bSM=makeJogBtn("S-","#201a10"); auto *bSP=makeJogBtn("S+","#201a10");
-        auto *bCW=makeJogBtn("CW","#1a2d1a"); auto *bCCW=makeJogBtn("CCW","#1a2d1a");
-        auto *bSS=makeJogBtn("STOP","#2d1a1a");
-        bSP->setStyleSheet(bSP->styleSheet().replace("color:#c8d4f0","color:#CC8800"));
-        bSM->setStyleSheet(bSM->styleSheet().replace("color:#c8d4f0","color:#CC8800"));
-        bCW->setStyleSheet(bCW->styleSheet().replace("color:#c8d4f0","color:#00AA00"));
-        bCCW->setStyleSheet(bCCW->styleSheet().replace("color:#c8d4f0","color:#00AA00"));
-        bSS->setStyleSheet(bSS->styleSheet().replace("color:#c8d4f0","color:#CC0000"));
-        h->addWidget(lbl); h->addWidget(bSM); h->addWidget(bSP);
-        h->addWidget(bCW); h->addWidget(bCCW); h->addWidget(bSS);
-        connect(bSP, &QPushButton::pressed, this,[this](){emit spindlePlusPressed(true);});
-        connect(bSP, &QPushButton::released,this,[this](){emit spindlePlusPressed(false);});
-        connect(bSM, &QPushButton::pressed, this,[this](){emit spindleMinusPressed(true);});
-        connect(bSM, &QPushButton::released,this,[this](){emit spindleMinusPressed(false);});
-        connect(bCW, &QPushButton::clicked, this,[this](){emit spindleCWRequested();});
-        connect(bCCW,&QPushButton::clicked, this,[this](){emit spindleCCWRequested();});
-        connect(bSS, &QPushButton::clicked, this,[this](){emit spindleStopRequested();});
-        lay->addWidget(w);
-    }
-    lay->addWidget(makeSepH());
-
-    // STOP + RESET
-    {
-        auto *w = new QWidget; w->setStyleSheet("background:#D6D6D6;border-bottom:1px solid #505050;");
-        auto *h = new QHBoxLayout(w);
-        h->setContentsMargins(8,4,8,6); h->setSpacing(4);
-        auto *bStop =makeCycleBtn("STOP","#3d1010","#CC0000","#CC0000");
-        auto *bReset=makeCycleBtn("RESET","#1a2040","#0000FF","#0000FF");
-        h->addWidget(bStop,1); h->addWidget(bReset,1);
-        connect(bStop, &QPushButton::clicked,this,[this](){emit cycleStopRequested();});
-        connect(bReset,&QPushButton::clicked,this,[this](){emit resetRequested();});
-        lay->addWidget(w);
-    }
-    lay->addWidget(makeSepH());
-
-    // MESSAGES
-    {
-        auto *w = new QWidget; w->setStyleSheet("background:#0d0f14;");
-        w->setMinimumHeight(55);
-        auto *v = new QVBoxLayout(w);
-        v->setContentsMargins(8,4,8,4); v->setSpacing(2);
-        v->addWidget(makeSectionLabel("MESSAGES"));
-        m_lblMessages = new QLabel("-");
-        m_lblMessages->setWordWrap(true);
-        m_lblMessages->setStyleSheet(
-            "QLabel{color:rgba(200,212,240,0.5);font-size:9px;"
-            "font-family:Consolas;background:transparent;}");
-        v->addWidget(m_lblMessages);
-        lay->addWidget(w);
-    }
-
-    lay->addStretch();
-}
-
-// ─────────────────────────────────────────────────────────────
-//  COLONNE DROITE
-// ─────────────────────────────────────────────────────────────
-void ExecutionPage::setupRightPanel(QWidget *col)
-{
-    auto *lay = qobject_cast<QVBoxLayout*>(col->layout());
-
-    // ── Barre du haut : nom + badge mode + Charger + Cycle Start
-    {
-        auto *bar = new QWidget; bar->setFixedHeight(48);
-        bar->setStyleSheet("background:#EAEAEA;border-bottom:1px solid #808080;");
-        auto *h = new QHBoxLayout(bar);
-        h->setContentsMargins(10,7,10,7); h->setSpacing(6);
-
-        m_lblProgName = new QLabel("Aucun programme");
-        m_lblProgName->setStyleSheet(
-            "font-family:Consolas;font-size:11px;"
-            "font-weight:700;color:#c8d4f0;background:transparent;");
-        h->addWidget(m_lblProgName, 1);
-
-        // Badge mode ENC / NC
-        m_lblModeBadge = new QLabel("ENC");
-        m_lblModeBadge->setFixedHeight(22);
-        m_lblModeBadge->setStyleSheet(
-            "QLabel{background:#1e4d1a;border:1px solid #00AA00;border-radius:3px;"
-            "color:#00AA00;font-family:Consolas;"
-            "font-size:8px;font-weight:700;letter-spacing:2px;padding:0 6px;}");
-        h->addWidget(m_lblModeBadge);
-
-        auto *btnLoad = new QPushButton("  Charger");
-        btnLoad->setFixedHeight(32);
-        btnLoad->setStyleSheet(
-            "QPushButton{background:#1a2040;border:1px solid rgba(68,170,255,0.4);"
-            "border-radius:4px;color:#0000FF;"
-            "font-family:Consolas;font-size:9px;font-weight:700;padding:0 10px;}"
-            "QPushButton:hover{background:#222a58;}");
-        h->addWidget(btnLoad);
-        connect(btnLoad, &QPushButton::clicked, this, &ExecutionPage::onChargerClicked);
-
-        auto *btnCycle = makeCycleBtn("  CYCLE START","#1e4d1a","#00AA00","#00AA00");
-        btnCycle->setFixedHeight(32);
-        h->addWidget(btnCycle);
-        connect(btnCycle, &QPushButton::clicked, this, [this](){ emit cycleStartRequested(); });
-
-        lay->addWidget(bar);
-    }
-
-    // ── Stack : vue ENC (blocs) | vue RAW (programme brut)
-    m_viewStack = new QStackedWidget;
-
-    // ── Vue ENC : splitter liste blocs + UnitEditor ──────────
-    {
-        m_encView = new QWidget;
-        auto *encLay = new QVBoxLayout(m_encView);
-        encLay->setContentsMargins(0,0,0,0); encLay->setSpacing(0);
-
-        auto *splitter = new QSplitter(Qt::Horizontal);
-        splitter->setHandleWidth(1);
-        splitter->setStyleSheet("QSplitter::handle{background:rgba(0,0,0,0.3);}");
-
-        // Liste blocs
-        auto *listPanel = new QWidget;
-        listPanel->setFixedWidth(200);
-        listPanel->setStyleSheet("background:#1e2128;");
-        auto *listLay = new QVBoxLayout(listPanel);
-        listLay->setContentsMargins(0,0,0,0); listLay->setSpacing(0);
-
-        auto *listHdr = new QLabel("  BLOCS");
-        listHdr->setFixedHeight(26);
-        listHdr->setStyleSheet("background:#13151a;color:rgba(255,255,255,0.25);"
-                               "font-size:7px;font-weight:700;letter-spacing:3px;");
-        listLay->addWidget(listHdr);
-
-        m_blockList = new QListWidget;
-        m_blockList->setStyleSheet(
-            "QListWidget{background:#1e2128;border:none;outline:none;}"
-            "QListWidget::item{"
-            "  border-bottom:1px solid rgba(255,255,255,0.04);"
-            "  border-left:3px solid transparent;"
-            "  padding:8px 10px;color:rgba(255,255,255,0.6);"
-            "  font-size:11px;font-family:Consolas;}"
-            "QListWidget::item:hover{background:rgba(255,255,255,0.03);}"
-            "QListWidget::item:selected{"
-            "  background:rgba(86,212,78,0.08);"
-            "  border-left-color:#00AA00;color:#00AA00;}");
-        listLay->addWidget(m_blockList, 1);
-        connect(m_blockList, &QListWidget::currentRowChanged,
-                this, &ExecutionPage::onBlockSelected);
-        splitter->addWidget(listPanel);
-
-        // UnitEditor lecture seule : créé seulement au premier bloc affiché
-        // (c'est un gros widget : ~4 s de démarrage en moins)
-        splitter->setObjectName("splitExecEnc");
-        splitter->setStretchFactor(0,0);
-
-        encLay->addWidget(splitter, 1);
-        m_viewStack->addWidget(m_encView);   // index 0
-    }
-
-    // ── Vue RAW : liste des lignes G-code ────────────────────
-    {
-        m_rawView = new QWidget;
-        m_rawView->setStyleSheet("background:#0d0f14;");
-        auto *rawLay = new QVBoxLayout(m_rawView);
-        rawLay->setContentsMargins(0,0,0,0); rawLay->setSpacing(0);
-
-        m_rawHdr = new QLabel("  PROGRAMME BRUT");
-        m_rawHdr->setFixedHeight(26);
-        m_rawHdr->setStyleSheet("background:#13151a;color:rgba(255,255,255,0.25);"
-                                "font-size:7px;font-weight:700;letter-spacing:3px;");
-        rawLay->addWidget(m_rawHdr);
-
-        m_rawList = new QListWidget;
-        m_rawList->setStyleSheet(
-            "QListWidget{background:#0d0f14;border:none;outline:none;}"
-            "QListWidget::item{"
-            "  border-bottom:1px solid rgba(255,255,255,0.03);"
-            "  border-left:4px solid transparent;"
-            "  padding:4px 10px 4px 6px;"
-            "  color:rgba(200,212,240,0.7);"
-            "  font-size:11px;font-family:Consolas;}"
-            "QListWidget::item:hover{background:rgba(255,255,255,0.03);}"
-            "QListWidget::item:selected{"
-            "  background:rgba(86,212,78,0.10);"
-            "  border-left-color:#00AA00;color:#00AA00;}");
-        rawLay->addWidget(m_rawList, 1);
-
-        m_viewStack->addWidget(m_rawView);   // index 1
-    }
-
-    m_viewStack->setCurrentIndex(0);
-    lay->addWidget(m_viewStack, 1);
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  Bascule de mode
-// ═══════════════════════════════════════════════════════════════
-void ExecutionPage::switchToEncMode()
-{
-    m_viewMode = ModeEnc;
-    m_viewStack->setCurrentIndex(0);
-    if (m_lblModeBadge) {
-        m_lblModeBadge->setText("ENC");
-        m_lblModeBadge->setStyleSheet(
-            "QLabel{background:#1e4d1a;border:1px solid #00AA00;border-radius:3px;"
-            "color:#00AA00;font-family:Consolas;"
-            "font-size:8px;font-weight:700;letter-spacing:2px;padding:0 6px;}");
-    }
-}
-
-void ExecutionPage::switchToRawMode()
-{
-    m_viewMode = ModeRaw;
-    m_viewStack->setCurrentIndex(1);
-    if (m_lblModeBadge) {
-        m_lblModeBadge->setText("NC");
-        m_lblModeBadge->setStyleSheet(
-            "QLabel{background:#1a2040;border:1px solid #0000FF;border-radius:3px;"
-            "color:#0000FF;font-family:Consolas;"
-            "font-size:8px;font-weight:700;letter-spacing:2px;padding:0 6px;}");
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  Bouton Charger
-// ═══════════════════════════════════════════════════════════════
-void ExecutionPage::onChargerClicked()
-{
-    // Signal vers MainWindow pour ouvrir le gestionnaire de fichiers
-    emit requestOpenFile();
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  loadRawFile — charger un .nc/.cnc en vue programme brut
-// ═══════════════════════════════════════════════════════════════
-void ExecutionPage::loadRawFile(const QString &path)
-{
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) return;
-
-    m_ncPath = path;
-    m_rawLines.clear();
-    m_rawList->clear();
-
-    QTextStream in(&f);
-    int lineNum = 1;
-    while (!in.atEnd()) {
-        QString line = in.readLine();
-        m_rawLines.append(line);
-
-        // Numéro de ligne + contenu
-        QString display = QString("%1").arg(lineNum, 4, 10, QChar(' ')) + "  " + line;
-        auto *item = new QListWidgetItem(display);
-        item->setSizeHint(QSize(0, 26));
-        // Colorier différemment les commentaires et les codes G/M
-        if (line.trimmed().startsWith("(") || line.trimmed().startsWith(";")) {
-            item->setForeground(QColor(255,255,255,80));
-        } else if (line.trimmed().startsWith("T") || line.trimmed().startsWith("M6")) {
-            item->setForeground(QColor("#CC8800")); // outil = orange
-        } else if (line.trimmed().startsWith("M3") || line.trimmed().startsWith("M4")
-                   || line.trimmed().startsWith("M5")) {
-            item->setForeground(QColor("#00AA00")); // broche = vert
+        auto *h = new QHBoxLayout;
+        h->setSpacing(6);
+        const QString st = QString(
+            "QPushButton{background:#fff;border:1px solid %1;border-radius:6px;padding:7px 0;font-weight:bold;font-size:10pt;color:#1E241E;}"
+            "QPushButton:checked{background:%1;color:#000;}").arg(VERT);
+        m_bBlocs = new QPushButton(QString::fromUtf8("▦  BLOCS"));
+        m_bGcode = new QPushButton(QString::fromUtf8("≡  G-CODE"));
+        for (QPushButton *b : {m_bBlocs, m_bGcode}) {
+            b->setCheckable(true);
+            b->setFocusPolicy(Qt::NoFocus);
+            b->setStyleSheet(st);
+            h->addWidget(b);
         }
-        m_rawList->addItem(item);
-        ++lineNum;
+        connect(m_bBlocs, &QPushButton::clicked, this, [this]{ choisirVue(0); });
+        connect(m_bGcode, &QPushButton::clicked, this, [this]{ choisirVue(1); });
+        cc->addLayout(h);
     }
-    f.close();
+    m_lblProg = new QLabel(QString::fromUtf8("Aucun programme — touche « Charger programme »"));
+    m_lblProg->setStyleSheet("color:#6B746B;font-size:9pt;");
+    cc->addWidget(m_lblProg);
+    m_lblMsg = new QLabel;
+    m_lblMsg->setWordWrap(true);
+    m_lblMsg->setStyleSheet("color:#B07000;font-size:9pt;font-weight:bold;");
+    m_lblMsg->hide();
+    cc->addWidget(m_lblMsg);
 
-    if (m_lblProgName)
-        m_lblProgName->setText(QFileInfo(path).fileName());
+    m_pile = new QStackedWidget;
+    m_listeBlocs = new QListWidget;
+    m_listeBlocs->setFrameShape(QFrame::NoFrame);
+    m_listeBlocs->setSelectionMode(QAbstractItemView::NoSelection);
+    m_listeBlocs->setFocusPolicy(Qt::NoFocus);
+    m_listeBlocs->setSpacing(3);
+    m_listeBlocs->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+    m_listeBlocs->setStyleSheet("QListWidget{background:transparent;}");
+    m_pile->addWidget(m_listeBlocs);
 
-    switchToRawMode();
+    m_listeGcode = new QListView;
+    m_modeleGcode = new QStringListModel(this);
+    m_listeGcode->setModel(m_modeleGcode);
+    m_listeGcode->setUniformItemSizes(true);
+    m_listeGcode->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_listeGcode->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_listeGcode->setStyleSheet(QString(
+        "QListView{background:#F7F8F7;border:1px solid %1;border-radius:6px;font-family:Consolas,monospace;font-size:10pt;color:#1E241E;}"
+        "QListView::item{padding:1px 6px;}"
+        "QListView::item:selected{background:#EEF6DC;color:#000;border-left:4px solid %2;}").arg(VERT, VERT2));
+    m_pile->addWidget(m_listeGcode);
+    cc->addWidget(m_pile, 1);
+
+    {   // Avancement
+        auto *c = carte();
+        auto *v = new QVBoxLayout(c);
+        v->setContentsMargins(12, 8, 12, 8);
+        v->setSpacing(4);
+        auto *h = new QHBoxLayout;
+        h->addWidget(titre("PROGRAMME"), 1);
+        m_lblPct = new QLabel("0 %");
+        m_lblPct->setStyleSheet("font-weight:bold;");
+        h->addWidget(m_lblPct);
+        v->addLayout(h);
+        m_barProg = new QProgressBar;
+        m_barProg->setRange(0, 1000);
+        m_barProg->setTextVisible(false);
+        v->addWidget(m_barProg);
+        m_lblTemps = new QLabel(QString::fromUtf8("0:00:00 écoulé"));
+        m_lblTemps->setProperty("sous", true);
+        v->addWidget(m_lblTemps);
+        cc->addWidget(c);
+    }
+    racine->addWidget(m_colC);
+
+    // ════ Droite : vue 3D en direct ════════════════════════════════
+    auto *v3 = new QFrame;
+    v3->setObjectName("vue3d");
+    v3->setStyleSheet(QString("#vue3d{background:#121512;border:1px solid %1;border-radius:6px;}").arg(VERT));
+    auto *vv = new QVBoxLayout(v3);
+    vv->setContentsMargins(1, 1, 1, 1);
+    vv->setSpacing(0);
+    {
+        auto *bar = new QWidget;
+        bar->setFixedHeight(36);
+        bar->setStyleSheet("background:transparent;");
+        auto *h = new QHBoxLayout(bar);
+        h->setContentsMargins(10, 0, 10, 0);
+        h->setSpacing(8);
+        auto *t = new QLabel(QString::fromUtf8("VUE 3D — EN DIRECT"));
+        t->setStyleSheet("color:#E6EBE6;font-size:9pt;font-weight:bold;letter-spacing:2px;background:transparent;");
+        h->addWidget(t, 1);
+        const QString st = QString(
+            "QPushButton{color:#9AA59A;border:1px solid #3A453A;border-radius:11px;padding:2px 10px;font-size:9pt;background:transparent;}"
+            "QPushButton:checked{color:%1;border-color:%1;}").arg(VERT);
+        auto puce = [&](const QString &txt) {
+            auto *b = new QPushButton(txt);
+            b->setCheckable(true);
+            b->setChecked(true);
+            b->setFocusPolicy(Qt::NoFocus);
+            b->setStyleSheet(st);
+            h->addWidget(b);
+            return b;
+        };
+        m_chMat   = puce(QString::fromUtf8("Matière"));
+        m_chOutil = puce("Outil");
+        m_chParc  = puce(QString::fromUtf8("Parcours"));
+        m_chMat->setToolTip(QString::fromUtf8("Matière pleine / transparente"));
+        connect(m_chMat,   &QPushButton::toggled, this, [this](bool on){ if (m_sim) m_sim->setStockOpaque(on); });
+        connect(m_chOutil, &QPushButton::toggled, this, [this](bool on){ if (m_sim) m_sim->setShowTool(on); });
+        connect(m_chParc,  &QPushButton::toggled, this, [this](bool on){ if (m_sim) m_sim->setShowToolPath(on); });
+        vv->addWidget(bar);
+        auto *sep = new QFrame;
+        sep->setFixedHeight(1);
+        sep->setStyleSheet("background:#263026;border:none;");
+        vv->addWidget(sep);
+    }
+    m_sim = new Sim3DWidget;
+    m_sim->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    // Les commandes de lecture appartiennent à la page Simulation : ici la vue suit la machine.
+    if (QWidget *tp = m_sim->findChild<QWidget *>("tpBar")) tp->hide();
+    vv->addWidget(m_sim, 1);
+    m_lblPrep = new QLabel(QString::fromUtf8("Préparation de la vue 3D…"), m_sim);
+    m_lblPrep->setStyleSheet(QString("color:%1;background:rgba(18,21,18,200);border:1px solid %1;border-radius:6px;padding:6px 12px;font-weight:bold;").arg(VERT));
+    m_lblPrep->move(16, 16);
+    m_lblPrep->adjustSize();
+    m_lblPrep->hide();
+    connect(m_sim, &Sim3DWidget::parcoursPret, this, [this]{
+        m_lblPrep->hide();
+        if (m_ligne > 1) m_sim->seekToLine(m_ligne - 1);
+        m_dernier3D.start();
+        qDebug() << "[EXEC] vue 3D prete";
+    });
+    racine->addWidget(v3, 1);
+
+    m_seg[m_modePos]->setChecked(true);
+    choisirVue(0);
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  offerProgram — depuis ProgrammePage (.enc)
-// ═══════════════════════════════════════════════════════════════
-void ExecutionPage::offerProgram(const QVector<BlockData> &blocks,
-                                 const QVector<GCodeLine> &gcode,
-                                 const QString            &name)
+// ── Vue blocs / G-code ─────────────────────────────────────────
+void ExecutionPage::choisirVue(int v)
+{
+    m_pile->setCurrentIndex(v);
+    m_bBlocs->setChecked(v == 0);
+    m_bGcode->setChecked(v == 1);
+    if (v == 1 && m_ligne > 0) allerALigne(m_ligne);
+}
+
+void ExecutionPage::basculerBlocsGcode() { choisirVue(m_pile->currentIndex() == 0 ? 1 : 0); }
+
+void ExecutionPage::basculerAgrandir3D()
+{
+    const bool grand = m_colG->isVisible();
+    m_colG->setVisible(!grand);
+    m_colC->setVisible(!grand);
+}
+
+void ExecutionPage::montrerMessages()
+{
+    QMessageBox::information(this, "Messages CNC12",
+        m_messages.isEmpty() ? QString::fromUtf8("Aucun message de CNC12.")
+                             : m_messages.join("\n"));
+}
+
+void ExecutionPage::chercherLigne(int ligne)
+{
+    m_pile->setCurrentIndex(1);
+    m_bBlocs->setChecked(false);
+    m_bGcode->setChecked(true);
+    allerALigne(ligne);
+}
+
+void ExecutionPage::allerALigne(int ligne)
+{
+    if (!m_modeleGcode || m_modeleGcode->rowCount() == 0) return;
+    const QModelIndex i = m_modeleGcode->index(qBound(0, ligne - 1, m_modeleGcode->rowCount() - 1));
+    m_listeGcode->setCurrentIndex(i);
+    m_listeGcode->scrollTo(i, QAbstractItemView::PositionAtCenter);
+}
+
+// ── Chargement ─────────────────────────────────────────────────
+void ExecutionPage::offerProgram(const QVector<BlockData> &blocks, const QVector<GCodeLine> &gcode, const QString &name)
 {
     m_blocks = blocks;
-    m_gcode  = gcode;
+    m_nomProg = QFileInfo(name).completeBaseName();
+    if (m_nomProg.isEmpty()) m_nomProg = "Programme";
+    m_infoCnc.clear();
+    chargerLignes(gcode);
+}
 
-    // Chemin .nc = C:/cncm/<nom>.nc (déjà écrit par ProgrammePage)
-    QString baseName = name;
-    if (baseName.endsWith(".enc", Qt::CaseInsensitive)) baseName.chop(4);
-    if (baseName.isEmpty()) baseName = "eazyncc";
-    m_ncPath = "C:/cncm/" + baseName + ".nc";
+void ExecutionPage::loadRawFile(const QString &path)
+{
+    const QVector<GCodeLine> l = NcFileParser::parse(path);
+    if (l.isEmpty()) return;
+    m_ncPath = path;
+    m_blocks.clear();
+    m_nomProg = QFileInfo(path).completeBaseName();
+    m_infoCnc.clear();
+    chargerLignes(l);
+}
 
-    if (m_lblProgName)
-        m_lblProgName->setText(name.isEmpty() ? "Programme" : name);
+void ExecutionPage::setInfoCnc12(const QString &txt)
+{
+    m_infoCnc = txt;
+    m_lblProg->setText(m_infoCnc.isEmpty() ? m_nomProg : m_nomProg + QString::fromUtf8("  ·  ") + m_infoCnc);
+}
 
-    // Remplir la liste blocs
-    m_blockList->clear();
-    for (const BlockData &b : blocks) {
-        QString label;
-        switch (b.type) {
-        case BlockType::BlkForm: label = QString("[%1]  BlkForm").arg(b.id); break;
-        case BlockType::Poche:   label = QString("[%1]  Poche - %2").arg(b.id).arg(b.name); break;
-        case BlockType::Trou:    label = QString("[%1]  Trou - %2").arg(b.id).arg(b.name);  break;
-        case BlockType::Contour: label = QString("[%1]  Contour - %2").arg(b.id).arg(b.name); break;
+// Découpe le G-code en blocs à partir des repères écrits par EazyNC :
+//   ( == BLOC n : TYPE : nom == )        un bloc du programme
+//   ( --- Operation i/N : cycle --- )    une opération d'un bloc 3D
+//   ( --- Material Size --- )            le BLK FORM
+// Ancien .nc sans repère : un bloc par appel d'outil.
+void ExecutionPage::chargerLignes(const QVector<GCodeLine> &lignes)
+{
+    QElapsedTimer chrono; chrono.start();
+    m_lignes = lignes;
+    m_sections.clear();
+    m_ligne = 0;
+    m_enCours = false;
+    m_tempsAvant = 0;
+    m_simCharge = false;
+
+    static const QRegularExpression reBloc(R"(^==\s*BLOC\s+\d+\s*:\s*([^:]*?)\s*:\s*(.*?)\s*==$)");
+    static const QRegularExpression reOp(R"(^---\s*Operation\s+(\d+)/(\d+)\s*:\s*(.*?)\s*---$)", QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression reOutil(R"(Appel outil\s+T(\d+))", QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression reT(R"(\bT(\d+)\b)");
+
+    bool reperes = false;
+    for (const GCodeLine &l : lignes)
+        if (l.type == GCodeLine::Comment && reBloc.match(l.comment.trimmed()).hasMatch()) { reperes = true; break; }
+
+    QVector<int> niveaux;                     // 0 = bloc, 1 = opération
+    // Icône : celle du bloc dans la page Programme, celle du cycle pour une opération 3D
+    auto icone = [](const QString &t) -> QIcon {
+        const QString u = t.toUpper();
+        if (u.contains("BLK"))                  return blockIcon(BlockType::BlkForm);
+        if (u.contains("USINAGE 3D"))           return blockIcon(BlockType::Usinage3D);
+        if (u.contains("EBAUCHE") || u.contains(QString::fromUtf8("ÉBAUCHE"))) return QIcon(":/aide3d/ebauche.png");
+        if (u.contains("Z CONSTANT") && u.contains("BALAYAGE")) return QIcon(":/aide3d/zbal.png");
+        if (u.contains("Z CONSTANT"))           return QIcon(":/aide3d/zconst.png");
+        if (u.contains("BALAYAGE"))             return QIcon(":/aide3d/balayage.png");
+        if (u.contains("MIXTE"))                return QIcon(":/aide3d/mixte.png");
+        if (u.contains("POCHE CONTOUR"))        return blockIcon(BlockType::PocheContour);
+        if (u.contains("POCHE CIRC"))           return blockIcon(BlockType::PocheCirc);
+        if (u.contains("POCHE"))                return blockIcon(BlockType::PocheRect);
+        if (u.contains("FRAISAGE TROU"))        return blockIcon(BlockType::FraisageTrou);
+        if (u.contains("PERCAGE"))              return blockIcon(BlockType::Percage);
+        if (u.contains("POINTAGE"))             return blockIcon(BlockType::Pointage);
+        if (u.contains("TARAUDAGE"))            return blockIcon(BlockType::Taraudage);
+        if (u.contains("ALESAGE"))              return blockIcon(BlockType::Alesage);
+        if (u.contains("SURFACAGE"))            return blockIcon(BlockType::Surfacage);
+        if (u.contains("RAINURE CIRC"))         return blockIcon(BlockType::RainureCirc);
+        if (u.contains("RAINURE"))              return blockIcon(BlockType::Rainure);
+        if (u.contains("TENON CIRC"))           return blockIcon(BlockType::TenonCirc);
+        if (u.contains("TENON"))                return blockIcon(BlockType::TenonRect);
+        if (u.contains("CONTOUR"))              return blockIcon(BlockType::Contour);
+        return QIcon();
+    };
+    for (int i = 0; i < lignes.size(); ++i) {
+        const GCodeLine &l = lignes[i];
+        if (l.type != GCodeLine::Comment) continue;
+        const QString c = l.comment.trimmed();
+        Section s;
+        s.debut = i;
+        int niv = 0;
+        if (c.startsWith("--- Material Size", Qt::CaseInsensitive)) {
+            s.nom = "BLK FORM"; s.icone = icone("BLK");
+        } else if (reperes) {
+            QRegularExpressionMatch m = reBloc.match(c);
+            if (m.hasMatch()) {
+                s.nom = m.captured(2).isEmpty() ? m.captured(1) : m.captured(2);
+                if (s.nom.compare(m.captured(1), Qt::CaseInsensitive) != 0) s.detail = m.captured(1);
+                s.icone = icone(m.captured(1));
+            } else if ((m = reOp.match(c)).hasMatch()) {
+                s.nom = m.captured(1) + ". " + m.captured(3);
+                s.icone = icone(m.captured(3));
+                s.op = true;
+                niv = 1;
+            } else continue;
+        } else {
+            QRegularExpressionMatch m = reOutil.match(c);
+            if (!m.hasMatch()) continue;
+            s.nom = "Outil T" + m.captured(1);
         }
-        auto *item = new QListWidgetItem(label);
-        item->setSizeHint(QSize(0, 40));
-        m_blockList->addItem(item);
+        m_sections << s;
+        niveaux << niv;
     }
-    if (!m_blocks.isEmpty())
-        m_blockList->setCurrentRow(0);
-
-    switchToEncMode();
-}
-
-// ─────────────────────────────────────────────────────────────
-//  Sélection bloc → UnitEditor lecture seule
-// ─────────────────────────────────────────────────────────────
-void ExecutionPage::onBlockSelected(int row)
-{
-    if (row < 0 || row >= m_blocks.size()) return;
-    if (!m_editor) {
-        if (auto *sp = m_encView ? m_encView->findChild<QSplitter*>("splitExecEnc") : nullptr) {
-            m_editor = new UnitEditor;
-            m_editor->setReadOnly(true);
-            sp->addWidget(m_editor);
-            sp->setStretchFactor(1, 1);
+    // Fin de chaque bloc : début du suivant de même niveau ou plus haut
+    for (int k = 0; k < m_sections.size(); ++k) {
+        int fin = lignes.size() - 1;
+        for (int j = k + 1; j < m_sections.size(); ++j)
+            if (niveaux[j] <= niveaux[k]) { fin = m_sections[j].debut - 1; break; }
+        m_sections[k].fin = fin;
+        const bool aDesOps = k + 1 < m_sections.size() && niveaux[k + 1] > niveaux[k];
+        // Outil utilisé dans le bloc
+        if (m_sections[k].nom != "BLK FORM" && !m_sections[k].nom.startsWith("Outil T") && !aDesOps) {
+            for (int i = m_sections[k].debut; i <= qMin(fin, m_sections[k].debut + 400); ++i) {
+                const GCodeLine &l = lignes[i];
+                if (l.type == GCodeLine::Comment) continue;
+                QRegularExpressionMatch m = reT.match(l.code.toUpper());
+                if (m.hasMatch()) {
+                    const QString t = "T" + m.captured(1);
+                    m_sections[k].detail = m_sections[k].detail.isEmpty() ? t : m_sections[k].detail + QString::fromUtf8(" · ") + t;
+                    break;
+                }
+            }
         }
-        if (!m_editor) return;
     }
-    m_currentBlock = row;
-    m_editor->setReadOnly(true);   // ← avant load() pour bloquer saveRequested
-    const BlockData &b = m_blocks[row];
 
-    if (b.type == BlockType::Trou && !b.data.isEmpty()) {
-        TrouData d;
-        d.toolRef          = b.data["toolRef"].toString();
-        d.toolByName       = b.data["toolByName"].toBool();
-        d.spindleVal       = b.data["spindleVal"].toDouble();
-        d.spindleByVc      = b.data["spindleByVc"].toBool();
-        d.descenteVal      = b.data["descenteVal"].toDouble();
-        d.descenteMode     = b.data["descenteMode"].toInt();
-        d.fonctionM1       = b.data["fonctionM1"].toString();
-        d.fonctionM2       = b.data["fonctionM2"].toString();
-        d.DL               = b.data["DL"].toDouble();
-        d.DR               = b.data["DR"].toDouble();
-        d.brocheCW         = b.data["brocheCW"].toBool(true);
-        d.diametre         = b.data["diametre"].toDouble(10.0);
-        d.profondeur       = b.data["profondeur"].toDouble(20.0);
-        d.traversant       = b.data["traversant"].toBool();
-        d.cycle            = b.data["cycle"].toInt();
-        d.degagement       = b.data["degagement"].toDouble(3.0);
-        d.approche         = b.data["approche"].toDouble(2.0);
-        d.sautBride        = b.data["sautBride"].toDouble(50.0);
-        d.positionnementG0 = b.data["posG0"].toBool(true);
-        d.positionnementF  = b.data["positionnementF"].toDouble();
-        d.fichierPoints    = b.data["fichierPoints"].toString();
-        m_editor->load(d);
-    } else if (b.type != BlockType::BlkForm && !b.data.isEmpty()) {
-        PocheData d;
-        d.toolRef          = b.data["toolRef"].toString();
-        d.toolByName       = b.data["toolByName"].toBool();
-        d.spindleVal       = b.data["spindleVal"].toDouble();
-        d.spindleByVc      = b.data["spindleByVc"].toBool();
-        d.descenteVal      = b.data["descenteVal"].toDouble();
-        d.descenteMode     = b.data["descenteMode"].toInt();
-        d.avanceVal        = b.data["avanceVal"].toDouble();
-        d.avanceMode       = b.data["avanceMode"].toInt();
-        d.fonctionM1       = b.data["fonctionM1"].toString();
-        d.fonctionM2       = b.data["fonctionM2"].toString();
-        d.DL               = b.data["DL"].toDouble();
-        d.DR               = b.data["DR"].toDouble();
-        d.Routil2              = b.data["Routil2"].toDouble();
-        d.brocheCW         = b.data["brocheCW"].toBool(true);
-        d.isCirculaire     = b.data["isCirculaire"].toBool();
-        d.longueur         = b.data["longueur"].toDouble();
-        d.largeur          = b.data["largeur"].toDouble();
-        d.rayonAngle       = b.data["rayonAngle"].toDouble();
-        d.diametre         = b.data["diametre"].toDouble();
-        d.profondeur       = b.data["profondeur"].toDouble();
-        d.profPasse        = b.data["profPasse"].toDouble(2.0);
-        d.surepLat         = b.data["surepLat"].toDouble();
-        d.surepProf        = b.data["surepProf"].toDouble();
-        d.passeFinition    = b.data["passeFinition"].toDouble();
-        d.avanceFinition   = b.data["avanceFin"].toDouble();
-        d.avanceFinMode    = b.data["avanceFinMode"].toInt();
-        d.posAngulaire     = b.data["posAngulaire"].toDouble();
-        d.positionPoche    = b.data["positionPoche"].toInt(5);
-        d.fichierPoints    = b.data["fichierPoints"].toString();
-        d.approche         = b.data["approche"].toDouble(2.0);
-        d.sautBride        = b.data["sautBride"].toDouble(50.0);
-        d.recouvrement     = b.data["recouvrement"].toInt(75);
-        d.positionnementG0 = b.data["posG0"].toBool(true);
-        d.positionnementF  = b.data["positionnementF"].toDouble();
-        d.modeFraisage     = b.data["modeFraisage"].toInt();
-        d.modePlongee      = b.data["modePlongee"].toInt();
-        m_editor->load(d);
+    qDebug() << "[EXEC] blocs" << m_sections.size() << "en" << chrono.elapsed() << "ms";
+    // Temps estimé ligne par ligne (avance programmée, rapide à 5000 mm/min).
+    // Lecture caractère par caractère : 180 000 lignes en quelques dizaines de ms.
+    m_tCumul.resize(lignes.size());
+    {
+        double x = 0, y = 0, z = 0, f = 1000, t = 0;
+        int mode = 0;
+        for (int i = 0; i < lignes.size(); ++i) {
+            const GCodeLine &l = lignes[i];
+            if (l.type != GCodeLine::Comment && l.type != GCodeLine::Blank && !l.code.isEmpty()
+                && !l.code.contains(QLatin1String("::::"))) {
+                const QChar *c = l.code.constData();
+                const int n = int(l.code.size());
+                double nx = x, ny = y, nz = z;
+                bool bouge = false, g28 = false;
+                for (int k = 0; k < n; ) {
+                    const char ch = char(c[k].toUpper().toLatin1());
+                    if (ch == ';' || ch == '(') break;
+                    if (ch < 'A' || ch > 'Z') { ++k; continue; }
+                    int a = k + 1;
+                    while (a < n && c[a] == ' ') ++a;
+                    int b = a;
+                    if (b < n && (c[b] == '-' || c[b] == '+')) ++b;
+                    while (b < n && (c[b].isDigit() || c[b] == '.')) ++b;
+                    if (b == a) { k = a; continue; }
+                    bool ok = false;
+                    const double v = QStringView(c + a, b - a).toDouble(&ok);
+                    k = b;
+                    if (!ok) continue;
+                    switch (ch) {
+                    case 'G': if (v == 28) g28 = true; else if (v >= 0 && v <= 3 && v == int(v)) mode = int(v); break;
+                    case 'X': nx = v; bouge = true; break;
+                    case 'Y': ny = v; bouge = true; break;
+                    case 'Z': nz = v; bouge = true; break;
+                    case 'F': if (v > 0) f = v; break;
+                    default: break;
+                    }
+                }
+                if (bouge && !g28) {
+                    const double d = std::sqrt((nx - x) * (nx - x) + (ny - y) * (ny - y) + (nz - z) * (nz - z));
+                    t += d / (mode == 0 ? 5000.0 : f) * 60.0;
+                    x = nx; y = ny; z = nz;
+                }
+            }
+            m_tCumul[i] = float(t);
+        }
+    }
+    qDebug() << "[EXEC] temps estime" << chrono.elapsed() << "ms";
+    // Liste G-code
+    {
+        QStringList txt;
+        txt.reserve(lignes.size());
+        const int larg = QString::number(lignes.size()).size();
+        for (int i = 0; i < lignes.size(); ++i) {
+            const GCodeLine &l = lignes[i];
+            const QString code = l.type == GCodeLine::Comment ? "( " + l.comment + " )" : l.code;
+            txt << QString("%1  %2").arg(i + 1, larg).arg(code);
+        }
+        m_modeleGcode->setStringList(txt);
+    }
+
+    // Liste des blocs
+    m_listeBlocs->clear();
+    m_rangs.clear();
+    for (const Section &s : std::as_const(m_sections)) {
+        auto *f = new QFrame;
+        auto *h = new QHBoxLayout(f);
+        h->setContentsMargins(s.op ? 28 : 10, 6, 10, 6);
+        h->setSpacing(10);
+        auto *ic = new QLabel;
+        const int cote = s.op ? 34 : 42;
+        ic->setFixedSize(cote, cote);
+        ic->setAlignment(Qt::AlignCenter);
+        ic->setStyleSheet("background:#fff;border:1px solid #C9CEC9;border-radius:5px;");
+        if (!s.icone.isNull()) ic->setPixmap(s.icone.pixmap(cote - 6, cote - 6));
+        h->addWidget(ic);
+        auto *col = new QVBoxLayout;
+        col->setSpacing(1);
+        auto *n = new QLabel(s.nom);
+        n->setStyleSheet("font-weight:bold;font-size:10pt;background:transparent;border:none;");
+        col->addWidget(n);
+        if (!s.detail.isEmpty()) {
+            auto *d = new QLabel(s.detail);
+            d->setStyleSheet("font-size:9pt;color:#6B746B;background:transparent;border:none;");
+            col->addWidget(d);
+        }
+        Ligne r;
+        r.f = f;
+        r.pb = new QProgressBar;
+        r.pb->setRange(0, 1000);
+        r.pb->setTextVisible(false);
+        r.pb->setStyleSheet(QString("QProgressBar{background:#DDE1DD;border:none;border-radius:2px;max-height:4px;min-height:4px;}"
+                                    "QProgressBar::chunk{background:%1;border-radius:2px;}").arg(VERT2));
+        r.pb->hide();
+        col->addWidget(r.pb);
+        h->addLayout(col, 1);
+        r.st = new QLabel;
+        r.st->setStyleSheet(QString("font-size:9pt;font-weight:bold;color:%1;background:transparent;border:none;").arg(VERT2));
+        h->addWidget(r.st);
+        auto *it = new QListWidgetItem(m_listeBlocs);
+        it->setSizeHint(QSize(0, s.op ? 48 : 58));
+        m_listeBlocs->setItemWidget(it, f);
+        m_rangs << r;
+    }
+    if (m_sections.isEmpty()) {
+        auto *it = new QListWidgetItem(QString::fromUtf8("  Programme sans découpage en blocs — voir G-CODE"), m_listeBlocs);
+        it->setForeground(QColor("#6B746B"));
+    }
+
+    qDebug() << "[EXEC] listes" << chrono.elapsed() << "ms";
+    setInfoCnc12(m_infoCnc);
+    majBlocs();
+    if (isVisible()) construire3D();
+}
+
+// Vue 3D : construite à l'affichage de la page (pas de calcul pour rien en arrière-plan)
+void ExecutionPage::construire3D()
+{
+    if (m_simCharge || m_lignes.isEmpty() || !m_sim) return;
+    m_simCharge = true;
+    QElapsedTimer chrono; chrono.start();
+    const StockData brut = SimulationPage::stockDepuisGcode(m_lignes);
+    if (brut.valid) {
+        m_sim->setStock(brut);
+        m_sim->onRebuildHeightmap();
+    }
+    m_sim->setStockOpaque(m_chMat->isChecked());
+    m_sim->setShowTool(m_chOutil->isChecked());
+    m_sim->setShowToolPath(m_chParc->isChecked());
+    m_sim->fitAll();
+    m_lblPrep->show();
+    m_lblPrep->raise();
+    m_sim->buildMovesOnlyAsync(m_lignes, SimulationPage::rayonOutil(m_lignes));   // la page reste utilisable
+    qDebug() << "[EXEC] vue 3D" << chrono.elapsed() << "ms";
+}
+
+void ExecutionPage::showEvent(QShowEvent *e)
+{
+    QWidget::showEvent(e);
+    if (!m_simCharge && !m_lignes.isEmpty())
+        QTimer::singleShot(0, this, [this]{ construire3D(); });
+}
+
+// ── État des blocs selon la ligne exécutée ─────────────────────
+void ExecutionPage::majBlocs()
+{
+    const int cur = m_ligne - 1;                  // index 0
+    for (int k = 0; k < m_sections.size() && k < m_rangs.size(); ++k) {
+        const Section &s = m_sections[k];
+        Ligne &r = m_rangs[k];
+        int etat = 0;                             // 0 à venir, 1 en cours, 2 fait
+        if (cur >= 0 && cur > s.fin) etat = 2;
+        else if (cur >= s.debut && cur <= s.fin) etat = 1;
+        if (etat == 1) {
+            const int n = qMax(1, s.fin - s.debut);
+            r.pb->setValue(qBound(0, (cur - s.debut) * 1000 / n, 1000));
+        }
+        if (etat == r.etat) continue;
+        r.etat = etat;
+        QString st;
+        if (etat == 2)
+            st = QString("QFrame{background:#F7F8F7;border:1px solid #C9CEC9;border-left:4px solid %1;border-radius:6px;}").arg(VERT);
+        else if (etat == 1)
+            st = QString("QFrame{background:#fff;border:2px solid %1;border-left:5px solid %2;border-radius:6px;}").arg(VERT, VERT2);
+        else
+            st = "QFrame{background:#F7F8F7;border:1px solid #C9CEC9;border-left:4px solid #C9CEC9;border-radius:6px;}";
+        r.f->setStyleSheet(st + "QLabel{border:none;}");
+        r.st->setText(etat == 2 ? QString::fromUtf8("✓") : etat == 1 ? QString::fromUtf8("▶ en cours") : QString());
+        r.pb->setVisible(etat == 1);
+        if (etat == 1) m_listeBlocs->scrollToItem(m_listeBlocs->item(k));
+    }
+
+    // Avancement global (au temps estimé, plus juste qu'au nombre de lignes)
+    const float tot = m_tCumul.isEmpty() ? 0.f : m_tCumul.last();
+    const float fait = (cur >= 0 && cur < m_tCumul.size()) ? m_tCumul[cur] : 0.f;
+    const double frac = tot > 0 ? double(fait) / tot : 0.0;
+    m_barProg->setValue(int(frac * 1000));
+    m_lblPct->setText(QString("%1 %").arg(int(frac * 100)));
+    const qint64 ecoule = m_tempsAvant + (m_enCours && m_chrono.isValid() ? m_chrono.elapsed() / 1000 : 0);
+    double reste = tot - fait;
+    if (fait > 30 && ecoule > 30) reste *= qBound(0.5, double(ecoule) / fait, 3.0);   // corrige selon la vitesse réelle
+    m_lblTemps->setText(QString::fromUtf8("%1 écoulé   ·   ≈ %2 restant").arg(duree(ecoule), duree(qint64(reste))));
+}
+
+void ExecutionPage::setLigneCourante(int ligne, bool enCours)
+{
+    if (enCours && !m_enCours) m_chrono.start();
+    if (!enCours && m_enCours && m_chrono.isValid()) m_tempsAvant += m_chrono.elapsed() / 1000;
+    if (enCours && ligne > 0 && ligne < m_ligne - 50) { m_tempsAvant = 0; m_chrono.start(); }   // reparti du début
+    m_enCours = enCours;
+    const bool change = ligne != m_ligne;
+    m_ligne = ligne;
+    majBlocs();
+    if (!change) return;
+    if (m_pile->currentIndex() == 1) allerALigne(m_ligne);
+    if (m_simCharge && enCours && (!m_dernier3D.isValid() || m_dernier3D.elapsed() > 1500)) {
+        m_sim->seekToLine(qMax(0, m_ligne - 1));
+        m_dernier3D.start();
     }
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  Mises à jour DRO
-// ═══════════════════════════════════════════════════════════════
-void ExecutionPage::updateDro(double wx,double wy,double wz,
-                              double mx,double my,double mz,
-                              double dtgx,double dtgy,double dtgz)
+// ── Position, outil, avance ────────────────────────────────────
+void ExecutionPage::updateDro(double wx, double wy, double wz, double mx, double my, double mz,
+                              double dtgx, double dtgy, double dtgz)
 {
-    auto f=[](double v){return QString::asprintf("%+.4f",v);};
-    if(m_droWX) m_droWX->setText(f(wx));
-    if(m_droWY) m_droWY->setText(f(wy));
-    if(m_droWZ) m_droWZ->setText(f(wz));
-    if(m_droMX) m_droMX->setText(f(mx));
-    if(m_droMY) m_droMY->setText(f(my));
-    if(m_droMZ) m_droMZ->setText(f(mz));
-    if(m_droDX) m_droDX->setText(f(dtgx));
-    if(m_droDY) m_droDY->setText(f(dtgy));
-    if(m_droDZ) m_droDZ->setText(f(dtgz));
+    const double v[3][3] = {{mx, my, mz}, {wx, wy, wz}, {dtgx, dtgy, dtgz}};
+    for (int i = 0; i < 3; ++i)
+        for (int a = 0; a < 3; ++a) m_val[i][a] = v[i][a];
+    majPositions();
 }
 
-void ExecutionPage::updateSpindle(int rpm, int ovr)
+void ExecutionPage::majPositions()
 {
-    if(m_lblRpm)     m_lblRpm->setText(QString("%1 tr/min").arg(rpm));
-    if(m_lblSpinOvr) m_lblSpinOvr->setText(QString("%1%").arg(ovr));
+    static const char *t[3] = {"POSITION · MACHINE", "POSITION · PIÈCE", "POSITION · RESTE À PARCOURIR"};
+    m_titrePos->setText(QString::fromUtf8(t[m_modePos]));
+    for (int i = 0; i < 3; ++i) m_seg[i]->setChecked(i == m_modePos);
+    for (int a = 0; a < 3; ++a) m_ax[a]->setText(fmt(m_val[m_modePos][a]));
 }
 
-void ExecutionPage::updateFeed(double f, int ovr)
+void ExecutionPage::updateSpindle(int rpm, int)
 {
-    if(m_lblFeed)    m_lblFeed->setText(QString("%1 mm/min").arg(qRound(f)));
-    if(m_lblFeedOvr) m_lblFeedOvr->setText(QString("%1%").arg(ovr));
+    m_lblS->setText(QString("S %1 tr/min").arg(rpm));
 }
 
-void ExecutionPage::updateTool(int tNum, int hNum)
+void ExecutionPage::updateFeed(double feed, int ovr)
 {
-    if(m_lblTool) m_lblTool->setText(QString("T%1  H%2").arg(tNum).arg(hNum));
+    m_feedOvr = ovr;
+    m_lblF->setText(QString("F %1 mm/min").arg(qRound(feed)));
+    m_lblFo->setText(QString("%1 %").arg(ovr));
+    m_barF->setValue(qBound(0, ovr, 150));
+}
+
+void ExecutionPage::updateTool(int tNum, int hNum, const QString &nom)
+{
+    QString s = QString("T%1").arg(tNum);
+    if (!nom.trimmed().isEmpty()) s += QString::fromUtf8(" · ") + nom.trimmed();
+    if (hNum > 0 && hNum != tNum) s += QString("   H%1").arg(hNum);
+    m_lblOutil->setText(s);
 }
 
 void ExecutionPage::updateMessages(const QString &msg)
 {
-    if(m_lblMessages && !msg.isEmpty())
-        m_lblMessages->setText(msg);
-}
-
-// ─────────────────────────────────────────────────────────────
-//  Surligner le bloc en cours (mode ENC)
-// ─────────────────────────────────────────────────────────────
-void ExecutionPage::highlightBlock(int blockId)
-{
-    if (m_viewMode != ModeEnc || !m_blockList || blockId <= 0) return;
-    for (int i = 0; i < m_blocks.size(); ++i) {
-        auto *item = m_blockList->item(i);
-        if (!item) continue;
-        if (m_blocks[i].id == blockId) {
-            item->setBackground(QColor(86,212,78,28));
-            item->setForeground(QColor("#00AA00"));
-            item->setFont(QFont("Consolas",10,QFont::Bold));
-            m_blockList->scrollToItem(item);
-        } else {
-            item->setBackground(QColor(0,0,0,0));
-            item->setForeground(QColor(255,255,255,153));
-            item->setFont(QFont("Consolas",10));
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────
-//  Surligner la ligne en cours (mode RAW)
-// ─────────────────────────────────────────────────────────────
-void ExecutionPage::highlightLine(int lineNumber)
-{
-    if (m_viewMode != ModeRaw || !m_rawList || lineNumber <= 0) return;
-    const int idx = lineNumber - 1;  // base 0
-    for (int i = 0; i < m_rawList->count(); ++i) {
-        auto *item = m_rawList->item(i);
-        if (!item) continue;
-        if (i == idx) {
-            item->setBackground(QColor(86,212,78,28));
-            item->setForeground(QColor("#00AA00"));
-            item->setFont(QFont("Consolas",10,QFont::Bold));
-            m_rawList->scrollToItem(item);
-        } else {
-            item->setBackground(QColor(0,0,0,0));
-            item->setForeground(QColor(200,212,240,178));
-            item->setFont(QFont("Consolas",10));
-        }
-    }
+    const QString m = msg.trimmed();
+    if (m.isEmpty() || (!m_messages.isEmpty() && m_messages.last().endsWith(m))) return;
+    m_messages << QDateTime::currentDateTime().toString("HH:mm:ss") + "  " + m;
+    while (m_messages.size() > 200) m_messages.removeFirst();
+    m_lblMsg->setText(QString::fromUtf8("CNC12 : ") + m);
+    m_lblMsg->show();
 }

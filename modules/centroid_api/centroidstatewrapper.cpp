@@ -11,7 +11,21 @@ CentroidStateWrapper::CentroidStateWrapper(QObject *parent) : QObject(parent) {}
 
 #include "../../CentroidWrapper.h"
 
-#define CNC_SUCCESS 27
+// ReturnCode::SUCCESS de l'API Centroid : 30 depuis CNC12 v5.4x (Centroid a
+// ajouté ERROR_REPORT_PATH_* avant SUCCESS, qui valait 27 dans les anciennes
+// versions). EazyNC doit utiliser la CentroidAPI.dll livrée avec CNC12.
+#define CNC_SUCCESS 30
+
+// Texte reçu de CNC12 : UTF-8 (les accents arrivaient en « Ã© » lus en
+// Latin-1) ; si ce n'est pas de l'UTF-8 valide, page de code Windows.
+static QString texteCnc(const char *buf)
+{
+    const QByteArray b(buf);
+    QString s = QString::fromUtf8(b);
+    if (s.contains(QChar::ReplacementCharacter)) s = QString::fromLocal8Bit(b);
+    return s;
+}
+
 
 void CentroidStateWrapper::load(const QString &dllName)
 {
@@ -83,7 +97,7 @@ int CentroidStateWrapper::refreshActiveGCodes()
     int rc = CNC_State_GetActiveGCodes(buf, sizeof(buf));
     s_activeGCodes.clear();
     if (rc == CNC_SUCCESS)
-        s_activeGCodes = QString::fromLatin1(buf).split("_", Qt::SkipEmptyParts);
+        s_activeGCodes = texteCnc(buf).split("_", Qt::SkipEmptyParts);
     return s_activeGCodes.size();
 }
 
@@ -97,7 +111,7 @@ int CentroidStateWrapper::refreshGCodeDisplay()
     int rc = CNC_State_GetGCodeDisplay(buf, sizeof(buf));
     s_gcodeDisplay.clear();
     if (rc == CNC_SUCCESS)
-        s_gcodeDisplay = QString::fromLatin1(buf).split("_", Qt::SkipEmptyParts);
+        s_gcodeDisplay = texteCnc(buf).split("_", Qt::SkipEmptyParts);
     return s_gcodeDisplay.size();
 }
 
@@ -113,17 +127,17 @@ bool CentroidStateWrapper::getCurrentLineInfo(int &line, int &program, int &stac
 
 // ── Job ───────────────────────────────────────────────────────────
 QString CentroidStateWrapper::getJobName()
-{ char buf[512] = {0}; CNC_State_GetJobNameCurrent(buf, sizeof(buf)); return QString::fromLatin1(buf); }
+{ char buf[512] = {0}; CNC_State_GetJobNameCurrent(buf, sizeof(buf)); return texteCnc(buf); }
 
 QString CentroidStateWrapper::getFullPathJobName()
-{ char buf[1024] = {0}; CNC_State_GetFullPathJobNameCurrent(buf, sizeof(buf)); return QString::fromLatin1(buf); }
+{ char buf[1024] = {0}; CNC_State_GetFullPathJobNameCurrent(buf, sizeof(buf)); return texteCnc(buf); }
 
 // ── Outil ─────────────────────────────────────────────────────────
 int CentroidStateWrapper::getToolNumber()
 { int v = -1; CNC_Tool_GetToolNumber(&v); return v; }
 
 QString CentroidStateWrapper::getToolDescription()
-{ char buf[256] = {0}; CNC_Tool_GetToolDescription(buf, sizeof(buf)); return QString::fromLatin1(buf); }
+{ char buf[256] = {0}; CNC_Tool_GetToolDescription(buf, sizeof(buf)); return texteCnc(buf); }
 
 int    CentroidStateWrapper::getCurrentHeightOffsetNumber()
 { int v = -1; CNC_Tool_GetCurrentHeightOffsetNumber(&v); return v; }
@@ -155,7 +169,7 @@ QString CentroidStateWrapper::getLastMessage()
     char buf[2048] = {0};
     int rc = CNC_MessageWindow_GetMessages(buf, sizeof(buf));
     if (rc != CNC_SUCCESS || buf[0] == '\0') return QString();
-    QString all = QString::fromLatin1(buf);
+    QString all = texteCnc(buf);
     QStringList parts = all.split("`", Qt::SkipEmptyParts);
     return parts.isEmpty() ? QString() : parts.last();
 }

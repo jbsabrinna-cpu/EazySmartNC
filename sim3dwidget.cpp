@@ -38,6 +38,7 @@
 #endif // WITH_OCC
 
 #include "sim3dwidget.h"
+#include <QFutureWatcher>
 #include <climits>
 #include <QMouseEvent>
 #include <QElapsedTimer>
@@ -54,6 +55,7 @@
 #include <QSignalBlocker>
 #include <QStyle>
 #include <cmath>
+#include <QThread>
 #include <algorithm>
 #include <array>
 #ifdef Q_OS_WIN
@@ -511,8 +513,36 @@ bool Heightmap::cutSegment(const QVector3D &a,const QVector3D &b,const ToolInfo 
                 if (t0 > t1) continue;
                 // Le Z varie linéairement : le point le plus bas est à une
                 // extrémité de la plage ou au plus près de l'axe.
-                const float ts[3] = { t0, t1, qBound(t0, tc, t1) };
-                for (float t : ts) {
+                // Segment en pente : le point le plus bas de l'outil sur cette
+                // case n'est PAS forcément au plus près de l'axe (la pente du
+                // segment et le profil de l'outil se compensent). Sans ce
+                // point, la simu laissait des bosses / creux réguliers sur
+                // les surfaces en pente (finitions 3D à la boule).
+                float ts[4] = { t0, t1, qBound(t0, tc, t1), qBound(t0, tc, t1) };
+                int nts = 3;
+                if (std::fabs(dz) > 1e-7f) {
+                    const float L = sqrtf(L2), m = dz / L;          // pente du segment
+                    if (ti.r2 >= R * 0.85f && ti.r2 > -0.5f) {      // boule : minimum exact
+                        const float q = R*R - h2;
+                        if (q > 0.f) {
+                            const float sv = -m * sqrtf(q / (1.f + m*m));
+                            ts[3] = qBound(t0, tc + sv / L, t1); nts = 4;
+                        }
+                    } else if (ti.r2 > 0.01f || ti.r2 < -0.5f) {     // torique / conique : recherche
+                        auto f = [&](float t) {
+                            const float ex = px - (ax + t*dx), ey = py - (ay + t*dy);
+                            return az + t*dz + toolProfileZ(ti, qMin(sqrtf(ex*ex + ey*ey), R));
+                        };
+                        float lo = t0, hi = t1;
+                        for (int it = 0; it < 24; ++it) {
+                            const float m1 = lo + (hi - lo) / 3.f, m2 = hi - (hi - lo) / 3.f;
+                            if (f(m1) < f(m2)) hi = m2; else lo = m1;
+                        }
+                        ts[3] = 0.5f * (lo + hi); nts = 4;
+                    }
+                }
+                for (int k = 0; k < nts; ++k) {
+                    const float t = ts[k];
                     const float ex = px - (ax + t*dx);
                     const float ey = py - (ay + t*dy);
                     const float d2 = ex*ex + ey*ey;
@@ -3273,11 +3303,10 @@ static QVector<QVector3D> applyRadiusComp(const QVector<QVector3D>&pts,float r,b
     }
     return out;
 }
-void Sim3DWidget::buildMoves(const QVector<GCodeLine> &lines,double rDefault)
+// Lecture du G-code en trajets : sans état, peut tourner dans un autre fil
+Sim3DWidget::Parcours Sim3DWidget::calculerParcours(const QVector<GCodeLine> &lines,double rDefault)
 {
-    invalidateCheckpoints();
-    m_moves.clear(); m_ebaucheContour.clear(); m_finitionContour.clear();
-
+    Parcours p;
     GCodeParserFreeCADCompatible parser;
     parser.parse(lines,rDefault);
     const auto &parsed=parser.moves();
@@ -3343,20 +3372,20 @@ void Sim3DWidget::buildMoves(const QVector<GCodeLine> &lines,double rDefault)
             mv.rawPts = mv.pts;
             mv.pts = applyRadiusComp(mv.pts, float(pm.compR), pm.compMode==41);
         }
-        if(mv.pts.size()>=2) m_moves.append(mv);
+        if(mv.pts.size()>=2) p.moves.append(mv);
     }
 
-    qDebug()<<"[Sim3D] buildMoves:"<<m_moves.size()<<"moves";  // log réduit
+    qDebug()<<"[Sim3D] buildMoves:"<<p.moves.size()<<"moves";  // log réduit
 
     // Post-process 1a : aligner Rapid→Cut
-    for(int mi=0;mi<m_moves.size()-1;mi++)
-        if(m_moves[mi].kind==SimMove::Rapid&&m_moves[mi+1].kind==SimMove::Cut
-            &&!m_moves[mi].pts.isEmpty()&&!m_moves[mi+1].pts.isEmpty())
-            m_moves[mi].pts.last()=m_moves[mi+1].pts.first();
+    for(int mi=0;mi<p.moves.size()-1;mi++)
+        if(p.moves[mi].kind==SimMove::Rapid&&p.moves[mi+1].kind==SimMove::Cut
+            &&!p.moves[mi].pts.isEmpty()&&!p.moves[mi+1].pts.isEmpty())
+            p.moves[mi].pts.last()=p.moves[mi+1].pts.first();
 
     // Post-process 1b : coins G41
-    for(int mi=0;mi<m_moves.size()-1;mi++){
-        SimMove &m0=m_moves[mi]; SimMove &m1=m_moves[mi+1];
+    for(int mi=0;mi<p.moves.size()-1;mi++){
+        SimMove &m0=p.moves[mi]; SimMove &m1=p.moves[mi+1];
         if(m0.kind!=SimMove::Cut||m1.kind!=SimMove::Cut||m0.pts.size()<2||m1.pts.size()<2) continue;
         const QVector3D &A=m0.pts[m0.pts.size()-2],&B=m0.pts.last(),&C=m1.pts.first(),&D=m1.pts[1];
         float gap=(B-C).length(); if(gap<0.05f||gap>30.f) continue;
@@ -3372,19 +3401,57 @@ void Sim3DWidget::buildMoves(const QVector<GCodeLine> &lines,double rDefault)
 
     // Post-process 2 : contours permanents vert/jaune
     float lzE=1e9f,lzF=1e9f;
-    for(const SimMove &mv:std::as_const(m_moves)){
+    for(const SimMove &mv:std::as_const(p.moves)){
         if(mv.kind==SimMove::Rapid) continue;
         const QVector<QVector3D>&src=mv.rawPts.isEmpty()?mv.pts:mv.rawPts;
         if(src.isEmpty()) continue;
         float z=src.first().z();
         if(mv.passColor==PassColor::EbaucheFinale){
-            if(!m_ebaucheContour.isEmpty()&&qAbs(z-lzE)>0.05f) m_ebaucheContour.append(QVector3D(1e9f,1e9f,1e9f));
-            m_ebaucheContour.append(src); lzE=z;
+            if(!p.eb.isEmpty()&&qAbs(z-lzE)>0.05f) p.eb.append(QVector3D(1e9f,1e9f,1e9f));
+            p.eb.append(src); lzE=z;
         } else if(mv.passColor==PassColor::FinitionFinale){
-            if(!m_finitionContour.isEmpty()&&qAbs(z-lzF)>0.05f) m_finitionContour.append(QVector3D(1e9f,1e9f,1e9f));
-            m_finitionContour.append(src); lzF=z;
+            if(!p.fin.isEmpty()&&qAbs(z-lzF)>0.05f) p.fin.append(QVector3D(1e9f,1e9f,1e9f));
+            p.fin.append(src); lzF=z;
         }
     }
+    return p;
+}
+
+void Sim3DWidget::buildMoves(const QVector<GCodeLine> &lines,double rDefault)
+{
+    invalidateCheckpoints();
+    ++m_parcoursGen;                                  // annule une lecture en cours dans l'autre fil
+    appliquerParcours(calculerParcours(lines, rDefault));
+}
+
+void Sim3DWidget::buildMovesOnlyAsync(const QVector<GCodeLine> &lines,double rDefault)
+{
+    stopBuild();
+    invalidateCheckpoints();
+    m_rDefault = rDefault;
+    pause();
+    m_moves.clear(); m_ebaucheContour.clear(); m_finitionContour.clear();   // plus d'ancien programme pendant la lecture
+    m_curMove = 0; m_curSeg = 0; m_curSegT = 0.f;
+    update();
+    const int gen = ++m_parcoursGen;
+    auto *w = new QFutureWatcher<Parcours>(this);
+    connect(w, &QFutureWatcher<Parcours>::finished, this, [this, w, gen]{
+        Parcours p = w->result();
+        w->deleteLater();
+        if (gen != m_parcoursGen) return;             // un autre programme a été demandé entre-temps
+        appliquerParcours(std::move(p));
+        resetSim(); update();
+        startCheckpoints();
+        emit parcoursPret();
+    });
+    w->setFuture(QtConcurrent::run([lines, rDefault]{ return calculerParcours(lines, rDefault); }));
+}
+
+void Sim3DWidget::appliquerParcours(Parcours &&p)
+{
+    m_moves = std::move(p.moves);
+    m_ebaucheContour = std::move(p.eb);
+    m_finitionContour = std::move(p.fin);
     // Position initiale : au-dessus du brut (zMax + longueur outil)
     // pour que l'outil soit visible arrivant d'en haut
     {
@@ -3426,6 +3493,22 @@ void Sim3DWidget::buildHeightmapSync(int upTo)
     // Point de sauvegarde le plus proche (grille légère) : on repart de
     // là au lieu de tout recalculer depuis le brut → recherche instantanée
     int startMi = 0;
+    // Pièce finie en grille fine déjà en cours de calcul en fond (lancé au
+    // chargement) : on l'attend au lieu de refaire le même calcul en double
+    // (les deux se partageaient le processeur -> « Fin » très long).
+    if (m_buildRes == m_hmapRes && limit == m_moves.size() && limit > 0) {
+        for (;;) {
+            {
+                QMutexLocker ck(&m_ckptMutex);
+                if (m_finalFineValid && m_finalFine.res == m_buildRes) break;
+            }
+            if (!m_ckptFuture.isRunning()) break;
+            if (m_buildCancel.load(std::memory_order_relaxed)) return;
+            const int p = m_ckptFineProg.load();
+            m_hmapProgress.store(p < 0 ? 0 : p);
+            QThread::msleep(50);
+        }
+    }
     if (m_buildRes == m_hmapRes && limit == m_moves.size() && limit > 0) {
         QMutexLocker ck(&m_ckptMutex);
         if (m_finalFineValid && m_finalFine.res == m_buildRes) { m_hmapBack = m_finalFine; startMi = limit; }
@@ -4084,13 +4167,19 @@ void Sim3DWidget::startCheckpoints()
         }
         if (fineRes <= res) return;
         Heightmap fh; fh.res = fineRes; fh.init(st.xMin, st.xMax, st.yMin, st.yMax, st.zMax, st.zMin);
+        qint64 tot = 0, fait = 0;
+        for (const SimMove &mv : moves) if (mv.kind == SimMove::Cut) tot += qMax(0, int(mv.pts.size()) - 1);
+        m_ckptFineProg.store(0);
         for (int mi = 0; mi < moves.size(); ++mi) {
-            if (m_ckptGen.load() != gen) return;
+            if (m_ckptGen.load() != gen) { m_ckptFineProg.store(-1); return; }
             const SimMove &mv = moves[mi];
             if (mv.kind != SimMove::Cut) continue;
             const ToolInfo ti = resolveToolInfo(mv.toolT);
             for (int i = 1; i < mv.pts.size(); ++i) fh.cutSegment(mv.pts[i-1], mv.pts[i], ti, mv.toolT);
+            fait += qMax(0, int(mv.pts.size()) - 1);
+            if (tot > 0) m_ckptFineProg.store(int(fait * 100 / tot));
         }
+        m_ckptFineProg.store(-1);
         QMutexLocker ck(&m_ckptMutex);
         if (m_ckptGen.load() == gen && !m_finalFineValid) { m_finalFine = std::move(fh); m_finalFineValid = true; }
     });

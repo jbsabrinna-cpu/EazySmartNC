@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/aide3d">
+        <file alias="ebauche.png">aide3d/ebauche.png</file>
+        <file alias="balayage.png">aide3d/balayage.png</file>
+        <file alias="zconst.png">aide3d/zconst.png</file>
+        <file alias="mixte.png">aide3d/mixte.png</file>
+        <file alias="zbal.png">aide3d/zbal.png</file>
+        <file alias="crayon.png">aide3d/crayon.png</file>
+    </qresource>
+</RCC>

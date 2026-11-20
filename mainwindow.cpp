@@ -26,6 +26,13 @@
 #include <QInputDialog>
 #include <QLineEdit>
 #include "crashhandler.h"
+#include <QMessageBox>
+#include <QCryptographicHash>
+#include <QCoreApplication>
+#include <QElapsedTimer>
+#include <QDateTime>
+#include <QPushButton>
+#include <QBoxLayout>
 
 // ═══════════════════════════════════════════════════════════
 //  THÈME TNC7 — Couleurs Heidenhain extraites de tncvbcntl.exe
@@ -258,10 +265,11 @@ MainWindow::MainWindow(QWidget *parent)
         switchPage(5);
     });
     connect(m_simPage, &SimulationPage::cycleStartRequested, this, [this](){
+        // Départ cycle : le programme doit être chargé ET confirmé par CNC12
+        // (avant : chargement puis départ cycle 200 ms après, à l'aveugle).
         const QString path = m_executionPage->currentNcPath();
         if (!path.isEmpty() && bridge && bridge->isLoaded()) {
-            bridge->loadFile(path);
-            QTimer::singleShot(200, this, [this](){ vcp->cycleStart(); });
+            chargerDansCnc12(path, [this](bool ok){ if (ok) vcp->cycleStart(); });
         } else {
             vcp->cycleStart();
         }
@@ -320,6 +328,23 @@ MainWindow::MainWindow(QWidget *parent)
     vcp    = new VcpController(this);
     bridge = new CentroidBridgeWrapper();
     bridge->init();
+    // CNC12 mis à jour depuis la dernière compilation ? (DLL d'EazyNC différente
+    // de celle de CNC12) -> prévenir au lieu de se tromper sans rien dire.
+    if (bridge->isLoaded()) {
+        auto empreinte = [](const QString &f) {
+            QFile x(f);
+            return x.open(QIODevice::ReadOnly) ? QCryptographicHash::hash(x.readAll(), QCryptographicHash::Md5) : QByteArray();
+        };
+        const QByteArray cnc = empreinte("C:/cncm/CentroidAPI.dll");
+        const QByteArray nous = empreinte(QCoreApplication::applicationDirPath() + "/CentroidAPI.dll");
+        if (!cnc.isEmpty() && cnc != nous)
+            QTimer::singleShot(1500, this, [this]{
+                QMessageBox::warning(this, "CNC12",
+                    QString::fromUtf8("CNC12 a été mis à jour depuis la dernière compilation d'EazyNC.\n\n"
+                                      "Recompile EazyNC pour reprendre la nouvelle CentroidAPI.dll, "
+                                      "puis vérifie la liaison (DRO, chargement d'un programme)."));
+            });
+    }
     state.load("CentroidBridgeState.dll");
     vcp->setApi(bridge);
 
@@ -642,7 +667,8 @@ void MainWindow::setupSoftkeys()
             m_programmePage->newProgram();
         });
         menu->addAction("Charger (.enc)...", this, [this](){
-            // Ouvrir le gestionnaire de fichiers
+            // Ouvrir le gestionnaire de fichiers (le .enc s'ouvrira dans la page Programme)
+            m_previousPage = 1;
             switchPage(5);
         });
         ui->sk_charger_1->setMenu(menu);
@@ -652,6 +678,33 @@ void MainWindow::setupSoftkeys()
         m_programmePage->saveCurrentBlock();   // flush bloc actif avant écriture
         m_programmePage->saveEncFile();
     });
+
+    // ── « Générer G-code » à côté de « Enreg. .enc » ─────────────
+    //  Enreg. = .enc seul (instantané) ; Générer = calcul + .nc +
+    //  Exécution + Simulation. Orange tant que le G-code n'est pas à jour.
+    {
+        m_skGenerer = new QToolButton(ui->sk_enregistrer_1->parentWidget());
+        m_skGenerer->setObjectName("sk_generer_1");
+        m_skGenerer->setSizePolicy(ui->sk_enregistrer_1->sizePolicy());
+        m_skGenerer->setMinimumWidth(ui->sk_enregistrer_1->minimumWidth());
+        m_skGenerer->setMaximumWidth(ui->sk_enregistrer_1->maximumWidth());
+        m_skGenerer->setText(QString::fromUtf8("Générer\nG-code"));
+        m_skGenerer->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        m_skGenerer->setAutoRaise(true);
+        if (auto *lay = qobject_cast<QBoxLayout*>(ui->sk_enregistrer_1->parentWidget()->layout()))
+            lay->insertWidget(lay->indexOf(ui->sk_enregistrer_1) + 1, m_skGenerer);
+        connect(m_skGenerer, &QToolButton::clicked, this, [this](){ m_programmePage->genererGCode(); });
+        auto style = [this](bool aJour) {
+            m_skGenerer->setStyleSheet(aJour ? QString() :
+                "QToolButton{ background:#FF9A2E; color:#000000; font-size:9pt; font-weight:bold;"
+                "  border:1px solid #B86A10; border-bottom:2px solid #8A4F0A; border-radius:4px; padding:2px 4px; margin:3px 2px; }"
+                "QToolButton:hover{ background:#FFB45C; }");
+            m_skGenerer->setToolTip(aJour ? QString::fromUtf8("G-code à jour")
+                                          : QString::fromUtf8("Le programme a changé : G-code à régénérer"));
+        };
+        connect(m_programmePage, &ProgrammePage::gcodeAJourChanged, this, style);
+        style(m_programmePage->gcodeAJour());
+    }
 
     // ── Page 1A : BlkForm | Tous usinages | Sélect. ─────────
     connect(ui->sk_blkform_1, &QToolButton::clicked, this, [this](){ m_programmePage->insertBlkForm(); });
@@ -753,15 +806,28 @@ void MainWindow::setupSoftkeys()
         ui->sk_couper_1->setEnabled(has);         // INSÉRER BLOC de la barre ▷
     });
 
-    // ── Softkeys page Exécution : Tableau outil + GOTO seulement ──
+    // ── Softkeys page Exécution ──────────────────────────────
+    {
+        struct Sk { QToolButton *b; const char *txt; };
+        const Sk sks[] = { {ui->sk_exec_e1, "CHARGER\nPROGRAMME"}, {ui->sk_exec_e2, "BLOCS /\nG-CODE"},
+                           {ui->sk_exec_e3, "AGRANDIR\n3D"},       {ui->sk_exec_e4, "MESSAGES\nCNC12"},
+                           {ui->sk_exec_goto, "CHERCHER\nLIGNE"} };
+        for (const Sk &k : sks) { k.b->setText(QString::fromUtf8(k.txt)); k.b->setEnabled(true); }
+        ui->sk_exec_e5->hide();
+        ui->sk_exec_e6->hide();
+    }
+    connect(ui->sk_exec_e1, &QToolButton::clicked, this, [this](){ m_previousPage = m_currentPage; switchPage(5); });
+    connect(ui->sk_exec_e2, &QToolButton::clicked, this, [this](){ m_executionPage->basculerBlocsGcode(); });
+    connect(ui->sk_exec_e3, &QToolButton::clicked, this, [this](){ m_executionPage->basculerAgrandir3D(); });
+    connect(ui->sk_exec_e4, &QToolButton::clicked, this, [this](){ m_executionPage->montrerMessages(); });
     connect(ui->sk_exec_tableau, &QToolButton::clicked, this,
             [this](){ openToolTableDialog(false, nullptr); });
     connect(ui->sk_exec_goto, &QToolButton::clicked, this, [this](){
-        // TODO : dialogue GOTO ligne/bloc
-        // Pour l'instant : placeholder
-        bool ok;
-        int line = QInputDialog::getInt(this, "GOTO", "Aller à la ligne :", 1, 1, 99999, 1, &ok);
-        Q_UNUSED(line)
+        // Affiche la ligne dans le G-code (ne déplace pas la machine)
+        bool ok = false;
+        const int l = QInputDialog::getInt(this, QString::fromUtf8("Chercher une ligne"),
+                                           QString::fromUtf8("Ligne du G-code :"), 1, 1, 9999999, 1, &ok);
+        if (ok) m_executionPage->chercherLigne(l);
     });
 
     // ── Softkeys page Simulation — 2 pages (flèches < >) ─────
@@ -840,37 +906,18 @@ void MainWindow::setupSoftkeys()
         });
     }
 
-    // ── Signaux VCP depuis ExecutionPage ─────────────────────
-    connect(m_executionPage, &ExecutionPage::jogXPlus,  this, [this](bool p){ vcp->jogXPlus(p); });
-    connect(m_executionPage, &ExecutionPage::jogXMinus, this, [this](bool p){ vcp->jogXMinus(p); });
-    connect(m_executionPage, &ExecutionPage::jogYPlus,  this, [this](bool p){ vcp->jogYPlus(p); });
-    connect(m_executionPage, &ExecutionPage::jogYMinus, this, [this](bool p){ vcp->jogYMinus(p); });
-    connect(m_executionPage, &ExecutionPage::jogZPlus,  this, [this](bool p){ vcp->jogZPlus(p); });
-    connect(m_executionPage, &ExecutionPage::jogZMinus, this, [this](bool p){ vcp->jogZMinus(p); });
-    connect(m_executionPage, &ExecutionPage::feedPlusPressed,    this, [this](bool p){ vcp->feedPlus(p); });
-    connect(m_executionPage, &ExecutionPage::feedMinusPressed,   this, [this](bool p){ vcp->feedMinus(p); });
-    connect(m_executionPage, &ExecutionPage::spindlePlusPressed, this, [this](bool p){ vcp->spindlePlus(p); });
-    connect(m_executionPage, &ExecutionPage::spindleMinusPressed,this, [this](bool p){ vcp->spindleMinus(p); });
-    connect(m_executionPage, &ExecutionPage::incContToggled, this, [this](){ vcp->toggleIncCont(); });
-    connect(m_executionPage, &ExecutionPage::rapidToggled,   this, [this](){ vcp->toggleRapid(); });
-    connect(m_executionPage, &ExecutionPage::setX1,   this, [this](){ vcp->setX1(); });
-    connect(m_executionPage, &ExecutionPage::setX10,  this, [this](){ vcp->setX10(); });
-    connect(m_executionPage, &ExecutionPage::setX100, this, [this](){ vcp->setX100(); });
-    connect(m_executionPage, &ExecutionPage::spindleCWRequested,   this, [this](){ vcp->spindleCW(); });
-    connect(m_executionPage, &ExecutionPage::spindleCCWRequested,  this, [this](){ vcp->spindleCCW(); });
-    connect(m_executionPage, &ExecutionPage::spindleStopRequested, this, [this](){ vcp->spindleStop(); });
-    connect(m_executionPage, &ExecutionPage::feedHoldRequested,    this, [this](){ vcp->feedHold(); });
-    connect(m_executionPage, &ExecutionPage::cycleStopRequested,   this, [this](){ vcp->cycleStop(); });
-    connect(m_executionPage, &ExecutionPage::resetRequested,       this, [this](){ vcp->reset(); });
-    connect(m_executionPage, &ExecutionPage::toolTableRequested,
-            this, [this](){ openToolTableDialog(false, nullptr); });
+    // ── Pupitre de la page Exécution (le jog / broche / corrections sont sur Mode manuel) ──
+    connect(m_executionPage, &ExecutionPage::feedHoldRequested,  this, [this](){ vcp->feedHold(); });
+    connect(m_executionPage, &ExecutionPage::cycleStopRequested, this, [this](){ vcp->cycleStop(); });
+    connect(m_executionPage, &ExecutionPage::resetRequested,     this, [this](){ vcp->reset(); });
 
     // CYCLE START depuis bouton interne ExecutionPage (avec loadFile)
     connect(m_executionPage, &ExecutionPage::cycleStartRequested, this, [this](){
+        // Départ cycle : le programme doit être chargé ET confirmé par CNC12
+        // (avant : chargement puis départ cycle 200 ms après, à l'aveugle).
         const QString path = m_executionPage->currentNcPath();
         if (!path.isEmpty() && bridge && bridge->isLoaded()) {
-            bridge->loadFile(path);
-            QTimer::singleShot(200, this, [this](){ vcp->cycleStart(); });
+            chargerDansCnc12(path, [this](bool ok){ if (ok) vcp->cycleStart(); });
         } else {
             vcp->cycleStart();
         }
@@ -903,6 +950,52 @@ void MainWindow::openToolTableDialog(bool byName,
     dlg->exec();
 }
 
+// ─────────────────────────────────────────────────────────────
+//  Chargement d'un .nc dans CNC12, confirmé : on attend que CNC12
+//  annonce ce programme comme chargé (20 s max), puis fini(true).
+// ─────────────────────────────────────────────────────────────
+void MainWindow::chargerDansCnc12(const QString &path, std::function<void(bool)> fini)
+{
+    const QString cible = CentroidBridgeWrapper::cheminCnc(path);
+    auto dejaCharge = [this, cible]{
+        return bridge->programmeCharge().compare(cible, Qt::CaseInsensitive) == 0;
+    };
+    // Déjà chargé et le fichier n'a pas changé depuis : rien à renvoyer
+    const QDateTime mt = QFileInfo(path).lastModified();
+    if (dejaCharge() && m_dernierEnvoi.first.compare(cible, Qt::CaseInsensitive) == 0 && m_dernierEnvoi.second == mt) {
+        m_executionPage->setInfoCnc12(QString::fromUtf8("chargé dans CNC12 ✓"));
+        if (fini) fini(true);
+        return;
+    }
+    QString err;
+    if (!bridge->envoyerProgramme(path, &err)) {
+        m_executionPage->setInfoCnc12(QString::fromUtf8("non envoyé : ") + err);
+        if (fini) QMessageBox::warning(this, "CNC12", err);
+        if (fini) fini(false);
+        return;
+    }
+    m_executionPage->setInfoCnc12(QString::fromUtf8("chargement dans CNC12…"));
+    auto *t = new QTimer(this);
+    auto debut = std::make_shared<QElapsedTimer>(); debut->start();
+    t->setInterval(250);
+    connect(t, &QTimer::timeout, this, [=]{
+        if (dejaCharge()) {
+            t->stop(); t->deleteLater();
+            m_dernierEnvoi = qMakePair(cible, mt);
+            m_executionPage->setInfoCnc12(QString::fromUtf8("chargé dans CNC12 ✓"));
+            qDebug() << "[CNC12] programme chargé en" << debut->elapsed() << "ms :" << cible;
+            if (fini) fini(true);
+        } else if (debut->elapsed() > 20000) {
+            t->stop(); t->deleteLater();
+            const QString m2 = QString::fromUtf8("CNC12 n'a pas confirmé le chargement (20 s, code %1)").arg(bridge->dernierCodeLoad());
+            m_executionPage->setInfoCnc12(m2);
+            qDebug() << "[CNC12]" << m2 << "— chargé :" << bridge->programmeCharge();
+            if (fini) { QMessageBox::warning(this, "CNC12", m2); fini(false); }
+        }
+    });
+    t->start();
+}
+
 void MainWindow::onGCodeReady(const QVector<BlockData>  &blocks,
                               const QVector<GCodeLine>  &gcode,
                               const QString             &name)
@@ -910,6 +1003,20 @@ void MainWindow::onGCodeReady(const QVector<BlockData>  &blocks,
     // Transmet à ExecutionPage — qui gère lui-même la logique
     // "machine à l'arrêt → charger, machine running → mettre en attente"
     m_executionPage->offerProgram(blocks, gcode, name);
+    // Le vrai .nc : à côté du .enc (avant : C:/cncm/<nom>.nc, qui n'existait pas)
+    {
+        const QString enc = m_programmePage ? m_programmePage->currentEncPath() : QString();
+        if (!enc.isEmpty()) {
+            const QFileInfo fe(enc);
+            const QString nc = fe.absolutePath() + "/" + fe.completeBaseName() + ".nc";
+            m_executionPage->setNcPath(nc);
+            // Envoi à CNC12 (chargement seul, jamais de départ cycle) si rien ne tourne
+            if (bridge && bridge->isLoaded() && !bridge->programmeEnCours())
+                chargerDansCnc12(nc, nullptr);
+            else if (bridge && bridge->isLoaded())
+                m_executionPage->setInfoCnc12(QString::fromUtf8("en attente : un programme tourne dans CNC12"));
+        }
+    }
 
     // ── Mise à jour simulateur 3D ─────────────────────────────
     if (m_simPage) {
@@ -953,6 +1060,20 @@ void MainWindow::switchPage(int index)
     // Sérialise le bloc courant en mémoire en quittant la page Programme
     if (m_currentPage == 1 && index != 1 && m_programmePage)
         m_programmePage->saveCurrentBlock();  // mémoire seulement, pas de disque
+
+    // En quittant le Programme vers Exécution / Simulation : G-code à jour ?
+    if (m_currentPage == 1 && (index == 2 || index == 4) && m_programmePage
+        && !m_programmePage->gcodeAJour()) {
+        QMessageBox mb(QMessageBox::Question, QString::fromUtf8("G-code"),
+                       QString::fromUtf8("Le G-code n'est pas à jour.\nLe générer maintenant ?"),
+                       QMessageBox::NoButton, this);
+        QPushButton *oui = mb.addButton("Oui", QMessageBox::YesRole);
+        mb.addButton("Non", QMessageBox::NoRole);
+        mb.setDefaultButton(oui);
+        mb.exec();
+        if (mb.clickedButton() == oui && !m_programmePage->genererGCode())
+            return;                         // calcul annulé : on reste sur le Programme
+    }
 
     m_currentPage = index;
     ui->stackedPages->setCurrentIndex(index);
@@ -1297,6 +1418,9 @@ void MainWindow::showSaveOverlay()
 
 void MainWindow::updateDisplay()
 {
+    // Messages CNC12 jamais « traités » : on vide la file une fois par seconde
+    if (bridge && bridge->isLoaded() && (++m_ticsAffichage % 10) == 0)
+        bridge->viderMessages();
     refreshWorkDro();
     refreshMachineDro();
     refreshDTG();
@@ -1320,17 +1444,13 @@ void MainWindow::updateDisplay()
         m_executionPage->updateFeed(
             state.getFeedrate(), state.getFeedOverride());
         m_executionPage->updateTool(
-            state.getToolNumber(), state.getCurrentHeightOffsetNumber());
+            state.getToolNumber(), state.getCurrentHeightOffsetNumber(), state.getToolDescription());
         m_executionPage->updateMessages(state.getLastMessage());
 
-        // Surligner le bloc/ligne en cours selon le mode
+        // Ligne exécutée → blocs fait / en cours, avancement, vue 3D
         int line=0, prog=0, stack=0;
-        if (state.getCurrentLineInfo(line, prog, stack)) {
-            if (m_executionPage->viewMode() == ExecutionPage::ModeRaw)
-                m_executionPage->highlightLine(line);
-            else
-                m_executionPage->highlightBlock(prog);
-        }
+        if (state.getCurrentLineInfo(line, prog, stack))
+            m_executionPage->setLigneCourante(line, bridge && bridge->programmeEnCours());
     }
 }
 
