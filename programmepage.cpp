@@ -788,6 +788,11 @@ static QVector<GCodeLine> buildGCode(const QVector<BlockData> &blocks,
                 PocheCircGenerator gen(d);
                 lines << gen.generate(b.id);
             }
+        } else if (b.type == BlockType::Taraudage) {
+            // Pas encore de vrai cycle G84 : avant, ce bloc sortait un perçage
+            // G83 (débourrage), qui casse un taraud. On n'écrit aucun mouvement.
+            skipNote(b, "cycle taraudage pas encore programme");
+            continue;
         } else if (b.type == BlockType::Trou
                    || b.type == BlockType::Percage
                    || b.type == BlockType::PercageDebourr
