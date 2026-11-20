@@ -247,6 +247,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_executionPage, &ExecutionPage::requestOpenFile,
             this, [this](){
                 m_previousPage = m_currentPage;
+                m_fileBrowserPage->setFilterType(EazyFileType::Unknown);
                 switchPage(5);
             });
 
@@ -254,13 +255,14 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_simPage, &SimulationPage::requestOpenFile,
             this, [this](){
                 m_previousPage = m_currentPage; // memoriser qu on vient de sim
+                m_fileBrowserPage->setFilterType(EazyFileType::NC);
                 switchPage(5);
             });
 
     // ── Signaux SimulationPage ────────────────────────────────
     connect(m_simPage, &SimulationPage::loadEncRequested, this, [this](){
         // Ouvrir le gestionnaire de fichiers filtre sur .enc
-        m_fileBrowserPage->setProperty("filterHint","enc");
+        m_fileBrowserPage->setFilterType(EazyFileType::ENC);
         m_previousPage = m_currentPage;     // le programme sera chargé DANS la simulation
         switchPage(5);
     });
@@ -426,6 +428,7 @@ void MainWindow::setupNavigation()
     connect(ui->tabSimulation,    &QToolButton::clicked, this, [this](){ switchPage(4); });
     connect(ui->tabFichiers,      &QToolButton::clicked, this, [this](){
         m_previousPage = m_currentPage;
+        m_fileBrowserPage->setFilterType(EazyFileType::Unknown);    // onglet Fichiers : tous les types
         switchPage(5);
     });
 }
@@ -669,6 +672,7 @@ void MainWindow::setupSoftkeys()
         menu->addAction("Charger (.enc)...", this, [this](){
             // Ouvrir le gestionnaire de fichiers (le .enc s'ouvrira dans la page Programme)
             m_previousPage = 1;
+            m_fileBrowserPage->setFilterType(EazyFileType::ENC);   // depuis Programme : seulement les .enc
             switchPage(5);
         });
         ui->sk_charger_1->setMenu(menu);
@@ -816,7 +820,11 @@ void MainWindow::setupSoftkeys()
         ui->sk_exec_e5->hide();
         ui->sk_exec_e6->hide();
     }
-    connect(ui->sk_exec_e1, &QToolButton::clicked, this, [this](){ m_previousPage = m_currentPage; switchPage(5); });
+    connect(ui->sk_exec_e1, &QToolButton::clicked, this, [this](){
+        m_previousPage = m_currentPage;
+        m_fileBrowserPage->setFilterType(EazyFileType::Unknown);    // .enc (son .nc) ou .nc
+        switchPage(5);
+    });
     connect(ui->sk_exec_e2, &QToolButton::clicked, this, [this](){ m_executionPage->basculerBlocsGcode(); });
     connect(ui->sk_exec_e3, &QToolButton::clicked, this, [this](){ m_executionPage->basculerAgrandir3D(); });
     connect(ui->sk_exec_e4, &QToolButton::clicked, this, [this](){ m_executionPage->montrerMessages(); });
