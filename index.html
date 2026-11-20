@@ -117,6 +117,7 @@
     <p>EazySmartNC est en cours de développement et de test. Vérifiez toujours le programme en simulation avant d'usiner, et faites le premier passage avec prudence (avance réduite, Z de sécurité).</p>
     <p><strong>Configuration de test du développeur :</strong> Intel Core i3-12100F, 16 Go de RAM, carte graphique NVIDIA RTX 3060, Windows 11, Centroid CNC12 Acorn Mill v5.42.10 avec carte Acorn.</p>
     <p>Le logiciel n'a pas encore été essayé sur des PC plus modestes. Avec une carte graphique intégrée (Intel, AMD) ou peu de mémoire, la simulation 3D et le calcul de l'usinage 3D peuvent être lents. Il faut un pilote graphique à jour (OpenGL).</p>
+    <p><strong>Liaison avec CNC12 (API Centroid) :</strong> les appels à l'API ont été corrigés, EazyNC arrive maintenant à charger le programme dans CNC12. Aucun essai d'usinage n'a encore été fait avec cette liaison. D'autres corrections des appels à l'API sont prévues dans un futur proche.</p>
   </div>
   <div class="tags"><span>Gratuit</span><span>Open source</span><span>Windows</span><span>C++ / Qt 6</span><span>Écrit par un fraiseur</span></div>
   <div class="shot"><img src="images/simulation-poche-etagee.gif" alt="Simulation 3D d'une poche étagée avec îlots dans EazySmartNC" width="640" height="383"></div>
@@ -216,6 +217,7 @@
       <p>EazySmartNC is still under development and testing. Always check the program in simulation before machining, and run the first pass with care (reduced feed, safe Z).</p>
       <p><strong>Developer's test setup:</strong> Intel Core i3-12100F, 16 GB RAM, NVIDIA RTX 3060 graphics card, Windows 11, Centroid CNC12 Acorn Mill v5.42.10 with an Acorn board.</p>
       <p>Not yet tried on lower-end PCs: with integrated graphics (Intel, AMD) or little memory, 3D simulation and 3D toolpath computation may be slow. An up-to-date graphics driver (OpenGL) is required.</p>
+      <p><strong>Link with CNC12 (Centroid API):</strong> the API calls have been fixed, and EazyNC can now load the program into CNC12. No machining test has been done with this link yet. Further fixes to the API calls are planned in the near future.</p>
     </div>
     <div class="btns">
       <a class="btn primary" href="https://github.com/jbsabrinna-cpu/EazySmartNC">View on GitHub</a>
