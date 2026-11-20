@@ -79,7 +79,7 @@ static QIcon logoFichier(const QString &type)
     const QByteArray svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>" + corps.toUtf8() + "</svg>";
     QSvgRenderer r(svg);
     QIcon ic;
-    for (int cote : {28, 56}) {
+    for (int cote : {28, 38, 56, 76}) {
         QPixmap pm(cote, cote);
         pm.fill(Qt::transparent);
         QPainter p(&pm);
@@ -166,7 +166,7 @@ FileBrowserPage::FileBrowserPage(QWidget *parent)
     });
 
     // Taille icones
-    ui->treeFiles->setIconSize(QSize(28, 28));
+    ui->treeFiles->setIconSize(QSize(38, 38));     // logos des types bien lisibles
     ui->treeDir->setIconSize(QSize(28, 28));
 
     // Largeurs colonnes

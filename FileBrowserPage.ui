@@ -110,7 +110,7 @@ QTreeWidget#treeFiles {
     alternate-background-color: #F5F5F5;
 }
 QTreeWidget#treeFiles::item {
-    height: 26px;
+    height: 42px;
     border-bottom: 1px solid #E0E0E0;
 }
 QTreeWidget#treeFiles::item:selected {
