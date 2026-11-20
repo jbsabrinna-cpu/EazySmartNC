@@ -336,7 +336,7 @@ Usinage3DEditor::Usinage3DEditor(QWidget *parent) : QWidget(parent)
             const int n = qMin(m_opCour, int(m_ops.size()) - 1);
             m_opCour = -1;
             majListeOps();
-            if (n >= 0) choisirOperation(n); else { m_grpEb->setVisible(false); m_grpFin->setVisible(false); majInfoFonds(); }
+            if (n >= 0) choisirOperation(n); else { m_grpEb->setVisible(false); m_grpFin->setVisible(false); m_grpCt->setVisible(false); majInfoFonds(); }
             emit dataChanged();
         });
         connect(bEF, &QPushButton::clicked, this, &Usinage3DEditor::ajouterEbaucheFinition);
@@ -438,6 +438,7 @@ Usinage3DEditor::Usinage3DEditor(QWidget *parent) : QWidget(parent)
     // ── Opération d'ÉBAUCHE ──
     {
         QFormLayout *f = groupe(m_grpEb);
+        m_formEb = f;
         outil(f, "Outil d'ébauche", m_outilEb, m_nomEb);
         coupe(f, m_cEb, m_outilEb, 8000, 1200, 400);
         m_passeEb   = champ(2.0, 0.05, 50.0, 2, " mm");
@@ -456,6 +457,7 @@ Usinage3DEditor::Usinage3DEditor(QWidget *parent) : QWidget(parent)
         m_surepLat->installEventFilter(new Survol(this, "surep_lat", m_surepLat));
         m_surepFond->installEventFilter(new Survol(this, "surep_fond", m_surepFond));
         auto *bC = new QPushButton("Voir les couches d'ébauche");
+        m_bCouches = bC;
         bC->setMinimumHeight(38);
         f->addRow("", bC);
         m_infoCouches = new QLabel;
@@ -463,6 +465,33 @@ Usinage3DEditor::Usinage3DEditor(QWidget *parent) : QWidget(parent)
         m_infoCouches->setWordWrap(true);
         f->addRow("", m_infoCouches);
         connect(bC, &QPushButton::clicked, this, &Usinage3DEditor::voirCouches);
+    }
+
+    // ── Contournage : réglages en plus de l'outil / passe / surépaisseur (groupe ébauche) ──
+    {
+        QFormLayout *f = groupe(m_grpCt);
+        m_cbFinCt = new QCheckBox(QString::fromUtf8("Finition de contour : une passe à 0 mm sur toute la hauteur"));
+        m_cbFinCt->setStyleSheet("font-size:12pt;");
+        m_cbFinCt->setChecked(true);
+        f->addRow("", m_cbFinCt);
+        m_avFinCt = champ(0.0, 0.0, 20000.0, 3, "");
+        m_avFinCt->setToolTip(QString::fromUtf8("Même unité que l'avance (mm/min, mm/tr ou mm/dent). 0 = même avance que l'ébauche."));
+        f->addRow(QString::fromUtf8("Avance de finition"), m_avFinCt);
+        m_sensCt = new QComboBox;
+        m_sensCt->addItems({QString::fromUtf8("Avalant (concordance)"), QString::fromUtf8("Opposition")});
+        m_sensCt->setStyleSheet("font-size:12pt;");
+        f->addRow(QString::fromUtf8("Mode"), m_sensCt);
+        m_rEntreeCt = champ(3.0, 0.5, 50.0, 1, " mm");
+        f->addRow(QString::fromUtf8("Entrée / sortie en arc, rayon"), m_rEntreeCt);
+        auto *n = new QLabel(QString::fromUtf8("Contour pris dans le modèle 3D à Z bas (la pièce, ou les faces choisies) — même origine et même brut que l'ébauche."));
+        n->setWordWrap(true);
+        n->setStyleSheet("color:#6a7090;font-size:10pt;font-style:italic;");
+        f->addRow("", n);
+        connect(m_cbFinCt, &QCheckBox::toggled, this, [this](bool on){
+            m_avFinCt->setEnabled(on);
+            if (!m_chargement) emit dataChanged();
+        });
+        connect(m_sensCt, &QComboBox::currentIndexChanged, this, [this]{ if (!m_chargement) emit dataChanged(); });
     }
 
     // ── Opération de FINITION ──
@@ -514,7 +543,7 @@ Usinage3DEditor::Usinage3DEditor(QWidget *parent) : QWidget(parent)
             emit dataChanged();
         });
     }
-    m_grpEb->setVisible(false); m_grpFin->setVisible(false);
+    m_grpEb->setVisible(false); m_grpFin->setVisible(false); m_grpCt->setVisible(false);
 
     auto *note = new QLabel(QString::fromUtf8(
         "Là où l'outil d'ébauche est trop gros pour passer, l'ébauche laisse plus de matière ;\n"
@@ -716,7 +745,7 @@ void Usinage3DEditor::charger(const QJsonObject &d)
     m_chargement = false;
     majListeOps();
     if (!m_ops.isEmpty()) choisirOperation(0);
-    else { m_grpEb->setVisible(false); m_grpFin->setVisible(false); majInfoFonds(); }
+    else { m_grpEb->setVisible(false); m_grpFin->setVisible(false); m_grpCt->setVisible(false); majInfoFonds(); }
     majOrigine();
     m_selAJour = true;
     if (m_tmrVue) m_tmrVue->start(50);
@@ -749,17 +778,18 @@ QJsonObject Usinage3DEditor::donnees() const
 //  Opérations
 // ═══════════════════════════════════════════════════════════════
 namespace {
-QPixmap iconeOp(bool eb)
+QPixmap iconeOp(const QString &type)
 {
+    const bool eb = (type == "ebauche"), ct = (type == "contour");
     QPixmap p(34, 34); p.fill(Qt::transparent);
     QPainter g(&p);
     g.setRenderHint(QPainter::Antialiasing);
     g.setPen(Qt::NoPen);
-    g.setBrush(eb ? QColor(232, 137, 42) : QColor(47, 158, 72));
+    g.setBrush(eb ? QColor(232, 137, 42) : ct ? QColor(40, 100, 200) : QColor(47, 158, 72));
     g.drawRoundedRect(QRectF(0, 0, 34, 34), 5, 5);
     g.setPen(Qt::white);
     QFont f; f.setBold(true); f.setPointSize(15); g.setFont(f);
-    g.drawText(QRectF(0, 0, 34, 34), Qt::AlignCenter, eb ? QString::fromUtf8("É") : QString("F"));
+    g.drawText(QRectF(0, 0, 34, 34), Qt::AlignCenter, eb ? QString::fromUtf8("É") : ct ? QString("C") : QString("F"));
     return p;
 }
 // Bulle d'aide d'un cycle : dessin + texte
@@ -772,6 +802,7 @@ QString bulleCycle(const QString &type)
     if (type == "zconst")   b = {"zconst", "Finition Z constant", "L'outil fait le tour de la pièce à une hauteur fixe, puis descend d'un pas et recommence.", "Parois raides, flancs", "Dessus plats : les tours s'écartent sur le plat"};
     if (type == "mixte")    b = {"mixte", "Finition mixte", "Z constant sur les parois raides, balayage sur les dessus ; les deux se recouvrent d'environ 1 mm. Réglage : angle de séparation (35°).", "Pièces avec dessus galbé et flancs (chevalet)", ""};
     if (type == "zbal")     b = {"zbal", "Finition Z constant puis balayage", "Z constant sur toute la pièce, puis un balayage sur toute la pièce.", "Sûr : tout est repassé deux fois", "Plus long que la finition mixte"};
+    if (type == "contour")  b = {"contour", "Contournage", "Fait le tour du contour de la pièce avec une fraise plate : passes en Z avec une surépaisseur, puis une passe de finition à 0 sur toute la hauteur. Entrée et sortie en arc tangent.", "Flancs verticaux, bord de la pièce net jusqu'en bas", "Ne finit pas les dessus galbés (boule)"};
     if (type == "crayon")   b = {"crayon", "Reprise crayon (plus tard)", "Passe seulement au fond des angles rentrants, là où la grosse boule n'a pas pu descendre.", "Après une finition, avec une boule plus petite", ""};
     if (!*b.img) return QString();
     QString t = QString("<table cellspacing=6><tr><td><img src=':/aide3d/%1.png'></td><td width=270>"
@@ -798,11 +829,13 @@ int Usinage3DEditor::premiereOp(bool ebauche) const
 // Nouvelle opération : outil et vitesses repris de la dernière opération de la même famille
 QJsonObject Usinage3DEditor::opParDefaut(const QString &type) const
 {
-    const bool eb = (type == "ebauche");
+    const bool ct = (type == "contour");
+    const bool eb = (type == "ebauche") || ct;           // contournage : fraise plate comme l'ébauche
     QJsonObject o;
     for (int i = m_ops.size() - 1; i >= 0; --i) {
         const QJsonObject p = (i == m_opCour) ? opCourante() : m_ops[i].toObject();
-        if (Usinage3DGenerator::estEbauche(p) == eb) {
+        const bool pEb = Usinage3DGenerator::estEbauche(p) || Usinage3DGenerator::estContour(p);
+        if (pEb == eb) {
             for (const char *k : {"outil", "s", "modeS", "avance", "modeAvance", "avPlongee", "modeAvPlongee",
                                   "passe", "pas", "angleSep", "recouvrement", "surepLat", "surepFond"})
                 if (p.contains(QString::fromLatin1(k))) o[QString::fromLatin1(k)] = p[QString::fromLatin1(k)];
@@ -811,6 +844,12 @@ QJsonObject Usinage3DEditor::opParDefaut(const QString &type) const
     }
     o["type"] = type;
     if (!o.contains("passe")) o["passe"] = eb ? 2.0 : 0.5;
+    if (ct) {
+        o["surepLat"] = 0.2;
+        o["finCt"] = true; o["sensCt"] = 0; o["rEntreeCt"] = 3.0; o["avanceFinCt"] = 0.0;
+        o["passe"] = 2.0;
+        o.remove("recouvrement"); o.remove("surepFond");
+    }
     if (eb) {
         if (!o.contains("s")) { o["s"] = 8000; o["avance"] = 1200; o["avPlongee"] = 400; }
         if (!o.contains("recouvrement")) o["recouvrement"] = 40;
@@ -827,9 +866,18 @@ QJsonObject Usinage3DEditor::opParDefaut(const QString &type) const
 QJsonObject Usinage3DEditor::opDepuisChamps(const QJsonObject &base) const
 {
     QJsonObject o = base;
-    const bool eb = Usinage3DGenerator::estEbauche(base);
+    const bool ct = Usinage3DGenerator::estContour(base);
+    const bool eb = Usinage3DGenerator::estEbauche(base) || ct;
     const Coupe3D &c = eb ? m_cEb : m_cFin;
-    if (eb) {
+    if (ct) {
+        o["outil"] = m_outilEb->text().trimmed();
+        o["passe"] = m_passeEb->value();
+        o["surepLat"] = m_surepLat->value();
+        o["finCt"] = m_cbFinCt->isChecked();
+        o["avanceFinCt"] = m_avFinCt->value();
+        o["sensCt"] = m_sensCt->currentIndex();
+        o["rEntreeCt"] = m_rEntreeCt->value();
+    } else if (eb) {
         o["outil"] = m_outilEb->text().trimmed();
         o["passe"] = m_passeEb->value();
         o["recouvrement"] = m_recouvrement->value();
@@ -863,9 +911,19 @@ void Usinage3DEditor::sauverOpCourante()
 void Usinage3DEditor::chargerOp(const QJsonObject &op)
 {
     m_chargement = true;
-    const bool eb = Usinage3DGenerator::estEbauche(op);
+    const bool ct = Usinage3DGenerator::estContour(op);
+    const bool eb = Usinage3DGenerator::estEbauche(op) || ct;
     Coupe3D &c = eb ? m_cEb : m_cFin;
-    if (eb) {
+    if (ct) {
+        m_outilEb->setText(op["outil"].toString());
+        m_passeEb->setValue(op["passe"].toDouble(2.0));
+        m_surepLat->setValue(op["surepLat"].toDouble(0.2));
+        m_cbFinCt->setChecked(op["finCt"].toBool(true));
+        m_avFinCt->setValue(op["avanceFinCt"].toDouble(0.0));
+        m_avFinCt->setEnabled(m_cbFinCt->isChecked());
+        m_sensCt->setCurrentIndex(qBound(0, op["sensCt"].toInt(0), 1));
+        m_rEntreeCt->setValue(op["rEntreeCt"].toDouble(3.0));
+    } else if (eb) {
         m_outilEb->setText(op["outil"].toString());
         m_passeEb->setValue(op["passe"].toDouble(2.0));
         m_recouvrement->setValue(op["recouvrement"].toInt(40));
@@ -895,6 +953,16 @@ void Usinage3DEditor::chargerOp(const QJsonObject &op)
     m_decoupe->setValue(op["decoupeSous"].toDouble(m_d["decoupeSous"].toDouble(0.5)));
     m_grpEb->setVisible(eb);
     m_grpFin->setVisible(!eb);
+    m_grpCt->setVisible(ct);
+    // lignes propres à l'ébauche par couches : cachées pour le contournage
+    if (m_formEb) {
+        m_formEb->setRowVisible(m_recouvrement, !ct);
+        m_formEb->setRowVisible(m_surepFond, !ct);
+        if (m_bCouches) m_formEb->setRowVisible(m_bCouches, !ct);
+        if (m_infoCouches) m_formEb->setRowVisible(m_infoCouches, !ct);
+        if (auto *lb = qobject_cast<QLabel*>(m_formEb->labelForField(m_outilEb->parentWidget())))
+            lb->setText(ct ? QString::fromUtf8("Outil (fraise plate)") : QString::fromUtf8("Outil d'ébauche"));
+    }
     m_chargement = false;
     majCalculs();
 }
@@ -942,7 +1010,6 @@ void Usinage3DEditor::majListeOps()
     for (int i = 0; i < m_ops.size(); ++i) {
         QJsonObject op = (i == cour) ? opCourante() : m_ops[i].toObject();
         const QString avert = m_ops[i].toObject()["avertissement"].toString();
-        const bool eb = Usinage3DGenerator::estEbauche(op);
         const int nf = op["facesZone"].toArray().size(), nc = op["contoursZone"].toArray().size();
         QString zone = (nf + nc == 0) ? QString::fromUtf8("toute la pièce")
                      : QString::fromUtf8("%1 face(s)%2").arg(nf).arg(nc ? QString::fromUtf8(", %1 contour(s)").arg(nc) : QString());
@@ -953,7 +1020,7 @@ void Usinage3DEditor::majListeOps()
             if (ok) if (const ToolData *td = ToolDatabase::instance().toolByT(t)) nom = td->description;
             outil = "T" + outil + (nom.isEmpty() ? QString() : "  " + nom);
         } else outil = QString::fromUtf8("outil ?");
-        auto *it = new QListWidgetItem(QIcon(iconeOp(eb)),
+        auto *it = new QListWidgetItem(QIcon(iconeOp(op["type"].toString())),
             QString::fromUtf8("%1. %2\n     Zone : %3    ·    %4").arg(i + 1)
                 .arg(Usinage3DGenerator::nomCycle(op["type"].toString()), zone, outil));
         QString bulle = bulleCycle(op["type"].toString());
@@ -1034,7 +1101,7 @@ QWidget *Usinage3DEditor::barreFamilles()
                                              {QString::fromUtf8("Finition Z constant puis balayage"), "zbal"},
                                              {QString::fromUtf8("Reprise crayon (plus tard)"), "crayon"}}, true);
     famille(QString::fromUtf8("◯ Perçage"), {}, false);
-    famille(QString::fromUtf8("▭ 2D sur 3D"), {}, false);
+    famille(QString::fromUtf8("▭ 2D sur 3D"), {{QString::fromUtf8("Contournage + finition de contour"), "contour"}}, true);
     h->addStretch();
     return m_barreFam;
 }

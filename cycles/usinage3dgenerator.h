@@ -80,6 +80,7 @@ public:
     // Réglages « à plat » (ancien format) pour calculer UNE opération
     static QJsonObject pourOperation(const QJsonObject &d, const QJsonObject &op);
     static bool estEbauche(const QJsonObject &op) { return op["type"].toString() == "ebauche"; }
+    static bool estContour(const QJsonObject &op) { return op["type"].toString() == "contour"; }   // contournage (fraise plate)
     static QString nomCycle(const QString &type);
     // Zone d'une opération dans le plan XY (contours + empreinte des faces) ; vide = toute la pièce
     static Contours2D zoneOperation(const QJsonObject &op, const CadDocument &doc);

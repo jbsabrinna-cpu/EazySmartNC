@@ -739,7 +739,7 @@ void ajouterMouvements(QVector<GCodeLine> &out, const QVector<GCodeLine> &cyc, d
 
 // Mémoire du résultat : le G-code du bloc est gardé sur disque ; s'il n'a
 // rien de changé (bloc, fichier STEP, outils), il est repris tel quel.
-static const char *U3D_VERSION = "u3d-42";   // 42 : avances des contours en mode Vc
+static const char *U3D_VERSION = "u3d-43";   // 43 : contournage
 
 // ── Opérations du bloc ─────────────────────────────────────────
 QString Usinage3DGenerator::nomCycle(const QString &t)
@@ -749,6 +749,7 @@ QString Usinage3DGenerator::nomCycle(const QString &t)
     if (t == "balayage") return QString::fromUtf8("Finition balayage");
     if (t == "zbal")     return QString::fromUtf8("Finition Z constant puis balayage");
     if (t == "mixte")    return QString::fromUtf8("Finition mixte");
+    if (t == "contour")  return QString::fromUtf8("Contournage");
     return t;
 }
 
@@ -801,11 +802,24 @@ QJsonObject Usinage3DGenerator::pourOperation(const QJsonObject &d, const QJsonO
     for (const QString &k : deLOp) if (op.contains(k)) r.insert(k, op.value(k));
     const QString t = op.value(QStringLiteral("type")).toString();
     const bool eb = estEbauche(op);
-    const QString suf = eb ? QStringLiteral("Eb") : QStringLiteral("Fin");
+    const bool ct = estContour(op);
+    const QString suf = (eb || ct) ? QStringLiteral("Eb") : QStringLiteral("Fin");
     const QStringList cles = {QStringLiteral("s"), QStringLiteral("modeS"), QStringLiteral("avance"),
                               QStringLiteral("modeAvance"), QStringLiteral("avPlongee"), QStringLiteral("modeAvPlongee")};
     for (const QString &c : cles) if (op.contains(c)) r.insert(c + suf, op.value(c));
-    if (eb) {
+    if (ct) {
+        // Contournage : fraise plate sur le contour de la pièce (cycle Contour RR)
+        r.insert(QStringLiteral("modeUsin"), 3);
+        r.insert(QStringLiteral("outilEb"), op.value(QStringLiteral("outil")).toString());
+        r.insert(QStringLiteral("passeEb"), 1000.0);          // le plan n'a besoin que de la couche du bas
+        r.insert(QStringLiteral("passeCt"), op.value(QStringLiteral("passe")).toDouble(2.0));
+        r.insert(QStringLiteral("surepLatCt"), op.value(QStringLiteral("surepLat")).toDouble(0.2));
+        r.insert(QStringLiteral("finCt"), op.value(QStringLiteral("finCt")).toBool(true));
+        r.insert(QStringLiteral("sensCt"), op.value(QStringLiteral("sensCt")).toInt(0));
+        r.insert(QStringLiteral("rEntreeCt"), op.value(QStringLiteral("rEntreeCt")).toDouble(3.0));
+        if (op.contains(QStringLiteral("avanceFinCt")))
+            r.insert(QStringLiteral("avanceFinCt"), op.value(QStringLiteral("avanceFinCt")).toDouble());
+    } else if (eb) {
         r.insert(QStringLiteral("modeUsin"), 1);
         r.insert(QStringLiteral("outilEb"), op.value(QStringLiteral("outil")).toString());
         r.insert(QStringLiteral("passeEb"), op.value(QStringLiteral("passe")).toDouble(2.0));
@@ -852,7 +866,7 @@ QString Usinage3DGenerator::avertissement(const QJsonArray &ops, int i, const Ca
 {
     if (i < 0 || i >= ops.size()) return QString();
     const QJsonObject op = ops[i].toObject();
-    if (estEbauche(op) || op.value(QStringLiteral("profondeurs")).toBool(false)) return QString();
+    if (estEbauche(op) || estContour(op) || op.value(QStringLiteral("profondeurs")).toBool(false)) return QString();
     if (doc.mesh.isEmpty()) return QString();
     QVector<QJsonObject> ebs;
     for (int k = 0; k < i; ++k) if (estEbauche(ops[k].toObject())) ebs << ops[k].toObject();
@@ -1024,6 +1038,66 @@ QVector<GCodeLine> Usinage3DGenerator::calculer(int blkId)
                              m_d["modeS" + suf].toInt(0) == 1, 2.0 * ot.R, true, "", "", blkId);
         out << line(GCodeLine::Rapid, "G0 Z" + fc(zSecu), "Hauteur de securite", blkId);
     };
+
+    // ─────────────── CONTOURNAGE : tour du contour de la pièce ───────────────
+    //  Contour = ombre de la pièce (ou de la zone) à Z bas ; cycle Contour 2D
+    //  à droite d'un contour tracé en sens trigo (outil dehors), passes en Z,
+    //  puis finition à 0 sur toute la hauteur ; entrée / sortie en arc tangent.
+    if (mode == 3) {
+        if (oEb.T <= 0 || oEb.R <= 0) {
+            out << comment("!! contournage : outil absent ou sans rayon dans le tableau", blkId);
+            return out;
+        }
+        if (pl.couches.isEmpty()) { out << comment("!! contournage : rien a usiner", blkId); return out; }
+        const Couche3D &c = pl.couches.last();
+        const double zFond = c.z - oz;
+        Contour2D ct;
+        if (!pl.zone.isEmpty()) {                        // faces choisies : le plus grand contour de la zone
+            double aMax = 0;
+            for (const Contour2D &z : pl.zone) {
+                double a = 0;
+                for (int i = 0; i < z.size(); ++i) a += z[i].x() * z[(i + 1) % z.size()].y() - z[(i + 1) % z.size()].x() * z[i].y();
+                if (std::fabs(a) > aMax) { aMax = std::fabs(a); ct = z; }
+            }
+        } else {
+            ct = dessinCouche(c.ombre, oEb.R);           // toute la pièce : son ombre à Z bas
+        }
+        if (ct.size() < 3) { out << comment("!! contournage : contour de la piece introuvable", blkId); return out; }
+        double aire = 0.0;
+        for (int i = 0; i < ct.size(); ++i) {
+            const QPointF &a = ct[i], &b = ct[(i + 1) % ct.size()];
+            aire += a.x() * b.y() - b.x() * a.y();
+        }
+        if (aire < 0) std::reverse(ct.begin(), ct.end());   // sens trigo : la pièce est à gauche
+        const bool fin = m_d["finCt"].toBool(true);
+        const double sLat = qMax(0.0, m_d["surepLatCt"].toDouble(0.2));
+        const double passe = qMax(0.1, m_d["passeCt"].toDouble(2.0));
+        out << comment(QString("CONTOURNAGE  T%1 %2  jusqu'a Z%3  passe %4  surep. %5%6")
+                       .arg(oEb.T).arg(oEb.nom).arg(fc(zFond), fc(passe), fc(sLat),
+                            fin ? QString("  + finition a 0") : QString()), blkId);
+        appelOutil(oEb, "Eb");
+        ContourData cd = base(oEb, "Eb");
+        cd.positionOutil = 3;                            // RR : à droite du sens trigo = dehors
+        cd.modeUsin      = fin ? 0 : 1;
+        cd.surepLat      = sLat;
+        cd.surepProf     = 0.0;
+        cd.profondeur    = zDessus - zFond;
+        cd.profPasse     = passe;
+        cd.modeFraisage  = qBound(0, m_d["sensCt"].toInt(0), 1);
+        cd.typeEntree    = 1; cd.typeSortie = 1;
+        cd.paramEntree   = cd.paramSortie = qMax(0.5, m_d["rEntreeCt"].toDouble(3.0));
+        cd.plongeeRapide = false;
+        if (m_d.contains("avanceFinCt") && m_d["avanceFinCt"].toDouble() > 0) {
+            cd.avanceFinition = m_d["avanceFinCt"].toDouble();
+            cd.avanceFinMode  = cd.avanceMode;
+        }
+        cd.contourName = "u3d_contour";
+        cd.contourFile = ecrireDessin(ct, cd.contourName);
+        ContourGenerator gen(cd);
+        ajouterMouvements(out, gen.generate(blkId), zDessus);
+        out << line(GCodeLine::Rapid, "G0 Z" + fc(zSecu), "Fin contournage", blkId);
+        return out;
+    }
 
     // ─────────────── ÉBAUCHE : une couche = un dessin = une passe ───────────────
     if (mode == 0 || mode == 1) {

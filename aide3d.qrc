@@ -6,5 +6,6 @@
         <file alias="mixte.png">aide3d/mixte.png</file>
         <file alias="zbal.png">aide3d/zbal.png</file>
         <file alias="crayon.png">aide3d/crayon.png</file>
+        <file alias="contour.png">aide3d/contour.png</file>
     </qresource>
 </RCC>

@@ -84,7 +84,13 @@ private:
     int          m_opCour = -1;
     bool         m_majListe = false;
     QListWidget *m_listeOps = nullptr;
-    QWidget     *m_grpEb = nullptr, *m_grpFin = nullptr;
+    QWidget     *m_grpEb = nullptr, *m_grpFin = nullptr, *m_grpCt = nullptr;
+    class QFormLayout *m_formEb = nullptr;                      // pour masquer les lignes propres à l'ébauche
+    class QPushButton *m_bCouches = nullptr;
+    // Contournage
+    class QCheckBox *m_cbFinCt = nullptr;
+    QDoubleSpinBox  *m_avFinCt = nullptr, *m_rEntreeCt = nullptr;
+    class QComboBox *m_sensCt = nullptr;
     QLabel      *m_titreOp = nullptr, *m_infoZoneOp = nullptr;
     QWidget     *m_barreFam = nullptr;
     QPushButton *m_bHaut = nullptr, *m_bBas = nullptr, *m_bDup = nullptr, *m_bSuppr = nullptr;
