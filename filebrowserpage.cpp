@@ -240,13 +240,17 @@ void FileBrowserPage::loadFilesForDir(const QString &dirPath)
         EazyFileType type = detectFileType(fi.fileName());
         QTreeWidgetItem *item = new QTreeWidgetItem(ui->treeFiles);
         item->setText(0, fi.completeBaseName().toUpper());
-        item->setText(1, labelForType(type));
+        // STEP / IGES s'ouvrent dans le même convertisseur que le DXF,
+        // mais on affiche leur vrai type (avant : « .DXF », trompeur)
+        const QString ext = fi.suffix().toLower();
+        const bool modele3D = (ext == "stp" || ext == "step" || ext == "igs" || ext == "iges");
+        item->setText(1, modele3D ? "." + fi.suffix().toUpper() : labelForType(type));
         item->setText(2, formatSize(fi.size()));
         item->setText(3, fi.lastModified().toString("dd.MM.yyyy"));
         item->setText(4, fi.lastModified().toString("HH:mm"));
         item->setData(0, Qt::UserRole,     fi.absoluteFilePath());
         item->setData(0, Qt::UserRole + 1, (int)type);
-        item->setIcon(0, iconForType(type));
+        item->setIcon(0, modele3D ? makeBadge("#BB6600", "3D") : iconForType(type));
     }
 
     updateStatusBar();
