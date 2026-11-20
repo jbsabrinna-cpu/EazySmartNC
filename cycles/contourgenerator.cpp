@@ -688,9 +688,13 @@ QVector<GCodeLine> ContourGenerator::contourBody(int blkId) const
                          d.brocheCW,
                          d.fonctionM1, d.fonctionM2, blkId);
 
-    const QString fTrav = avanceStr(d.avanceVal,    d.avanceMode,   d.spindleVal, nbDentsOutil);
+    // Vitesse broche en tr/min pour convertir les avances (Fz, Fu) : en mode Vc,
+    // d.spindleVal est la vitesse de coupe (m/min), pas des tr/min.
+    const double sTr = (d.spindleByVc && d.spindleVal > 0 && rOutil > 0)
+                           ? d.spindleVal * 1000.0 / (M_PI * 2.0 * rOutil) : d.spindleVal;
+    const QString fTrav = avanceStr(d.avanceVal,    d.avanceMode,   sTr, nbDentsOutil);
     double fDescVal = (d.descenteVal > 0) ? d.descenteVal : d.avanceVal;
-    const QString fDesc = avanceStr(fDescVal,        d.descenteMode, d.spindleVal, nbDentsOutil);
+    const QString fDesc = avanceStr(fDescVal,        d.descenteMode, sTr, nbDentsOutil);
 
     // ── 6. (Plus de sous-fichier .cnc - trajectoires inline) ─
 
@@ -762,7 +766,7 @@ QVector<GCodeLine> ContourGenerator::contourBody(int blkId) const
     if (posOutil != 0) {
         const QString fFinG = avanceStr(
             d.avanceFinition > 0 ? d.avanceFinition : d.avanceVal,
-            d.avanceFinMode, d.spindleVal, nbDentsOutil);
+            d.avanceFinMode, sTr, nbDentsOutil);
         const bool finG = (d.modeUsin == 0 || d.modeUsin == 2);
         const bool ebG  = (d.modeUsin == 0 || d.modeUsin == 1);
         const double zEnd = -d.profondeur;
@@ -1482,7 +1486,7 @@ QVector<GCodeLine> ContourGenerator::contourBody(int blkId) const
     if (doFinitionPhase && d.strategieFinition != 1) {
         const QString fFin = avanceStr(
             d.avanceFinition > 0 ? d.avanceFinition : d.avanceVal,
-            d.avanceFinMode, d.spindleVal, nbDentsOutil);
+            d.avanceFinMode, sTr, nbDentsOutil);
         out << blank();
         out << comment("-- FINITION PAROI (passe contour) --", blkId);
         emitPass(-d.profondeur, fFin, rFinition,

@@ -371,13 +371,17 @@ QVector<GCodeLine> PocheContourGenerator::generate(int blkId)
     for (const QString &w : warn) out << comment(w, blkId);
     out << emitToolBlock(d.toolRef, d.toolByName, d.spindleVal, d.spindleByVc, 0.0,
                          d.brocheCW, d.fonctionM1, d.fonctionM2, blkId);
-    const QString fTrav = avanceStr(d.avanceVal, d.avanceMode, d.spindleVal, nbDents);
+    // Vitesse broche en tr/min pour convertir les avances (Fz, Fu) : en mode Vc,
+    // d.spindleVal est la vitesse de coupe (m/min), pas des tr/min.
+    const double sTr = (d.spindleByVc && d.spindleVal > 0 && rOutil > 0)
+                           ? d.spindleVal * 1000.0 / (M_PI * 2.0 * rOutil) : d.spindleVal;
+    const QString fTrav = avanceStr(d.avanceVal, d.avanceMode, sTr, nbDents);
     const QString fDesc = avanceStr(d.descenteVal > 0 ? d.descenteVal : d.avanceVal,
-                                    d.descenteMode, d.spindleVal, nbDents);
+                                    d.descenteMode, sTr, nbDents);
     const bool    pendulDef = (d.pendulVal > 0);
-    const QString fRampe = pendulDef ? avanceStr(d.pendulVal, d.pendulMode, d.spindleVal, nbDents) : fDesc;
+    const QString fRampe = pendulDef ? avanceStr(d.pendulVal, d.pendulMode, sTr, nbDents) : fDesc;
     const QString fFin  = avanceStr(d.avanceFinition > 0 ? d.avanceFinition : d.avanceVal,
-                                    d.avanceFinMode, d.spindleVal, nbDents);
+                                    d.avanceFinMode, sTr, nbDents);
     const double zSafe = qMax(qMax(d.zLiaison, d.approche), 1.0);
     const bool climb = (d.modeFraisage == 0);
 

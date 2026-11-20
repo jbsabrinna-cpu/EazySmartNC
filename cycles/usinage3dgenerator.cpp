@@ -739,7 +739,7 @@ void ajouterMouvements(QVector<GCodeLine> &out, const QVector<GCodeLine> &cyc, d
 
 // Mémoire du résultat : le G-code du bloc est gardé sur disque ; s'il n'a
 // rien de changé (bloc, fichier STEP, outils), il est repris tel quel.
-static const char *U3D_VERSION = "u3d-41";
+static const char *U3D_VERSION = "u3d-42";   // 42 : avances des contours en mode Vc
 
 // ── Opérations du bloc ─────────────────────────────────────────
 QString Usinage3DGenerator::nomCycle(const QString &t)
