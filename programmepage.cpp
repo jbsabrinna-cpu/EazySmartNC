@@ -2406,6 +2406,10 @@ void ProgrammePage::setupUi()
         echap->setContext(Qt::WidgetWithChildrenShortcut);
         connect(echap, &QShortcut::activated, this, [this]{ if (m_plein3D) pleinEcran3D(false); });
     }
+    // Largeur mini explicite : sans elle, la barre de la vue 3D (familles de
+    // cycles + Agrandir) imposait ~650 px à toute la colonne, même quand
+    // c'est l'aide qui est affichée, et l'éditeur (BLK FORM) était coupé.
+    panel3d->setMinimumWidth(320);
     m_col3 = new QStackedWidget;
     m_col3->addWidget(helpPanel);     // 0
     m_col3->addWidget(panel3d);       // 1
