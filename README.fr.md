@@ -8,6 +8,13 @@ EazySmartNC (application *EazyNC*) permet de programmer une fraiseuse CNC **sans
 
 Écrit en C++ / Qt 6 par un fraiseur, pour des fraiseurs.
 
+> [!WARNING]
+> **Logiciel en phase de test.** EazySmartNC est en cours de développement et de test. Vérifiez toujours le programme en simulation avant d'usiner, et faites le premier passage avec prudence (avance réduite, Z de sécurité).
+>
+> **Configuration de test du développeur :** Intel Core i3-12100F, 16 Go de RAM, carte graphique NVIDIA RTX 3060, Windows 11, Centroid CNC12 Acorn Mill v5.42.10 avec carte Acorn.
+>
+> Le logiciel n'a pas encore été essayé sur des PC plus modestes. Avec une carte graphique intégrée (Intel, AMD) ou peu de mémoire, la simulation 3D et le calcul de l'usinage 3D peuvent être lents. Il faut un pilote graphique à jour (OpenGL).
+
 ![Simulation d'une poche étagée avec îlots](docs/images/simulation-poche-etagee.gif)
 
 ---
@@ -83,7 +90,7 @@ Enlèvement de matière en temps réel, une couleur par outil, lecture ligne à 
 
 ## Compilation
 
-**Environnement testé** : Windows 10/11, **Qt 6.8 (MSVC 2022, 64 bits)**, Qt Creator.
+**Environnement testé** : Windows 11, **Qt 6.8 (MSVC 2022, 64 bits)**, Qt Creator, sur Intel Core i3-12100F, 16 Go de RAM, NVIDIA RTX 3060, avec Centroid CNC12 Acorn Mill v5.42.10.
 
 1. Cloner le dépôt et ouvrir `EazyNC.pro` dans Qt Creator.
 2. **Icônes TNC** : elles ne sont pas fournies (voir plus bas). Créer des icônes provisoires pour que le projet compile :

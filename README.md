@@ -10,6 +10,13 @@ Written in C++ / Qt 6 by a machinist, for machinists.
 
 > The user interface is currently in French.
 
+> [!WARNING]
+> **Testing stage.** EazySmartNC is still under development and testing. Always check the program in simulation before machining, and run the first pass with care (reduced feed, safe Z).
+>
+> **Developer's test setup:** Intel Core i3-12100F, 16 GB RAM, NVIDIA RTX 3060 graphics card, Windows 11, Centroid CNC12 Acorn Mill v5.42.10 with an Acorn board.
+>
+> Not yet tried on lower-end PCs: with integrated graphics (Intel, AMD) or little memory, 3D simulation and 3D toolpath computation may be slow. An up-to-date graphics driver (OpenGL) is required.
+
 ![Stepped pocket with islands, 3D simulation](docs/images/simulation-poche-etagee.gif)
 
 ---
@@ -85,7 +92,7 @@ Real-time stock removal, one color per tool, line-by-line G-code playback.
 
 ## Building
 
-**Tested environment**: Windows 10/11, **Qt 6.8 (MSVC 2022, 64-bit)**, Qt Creator.
+**Tested environment**: Windows 11, **Qt 6.8 (MSVC 2022, 64-bit)**, Qt Creator, on an Intel Core i3-12100F, 16 GB RAM, NVIDIA RTX 3060, with Centroid CNC12 Acorn Mill v5.42.10.
 
 1. Clone the repository and open `EazyNC.pro` in Qt Creator.
 2. **TNC icons**: they are not included (see below). Create placeholder icons so the project compiles:
