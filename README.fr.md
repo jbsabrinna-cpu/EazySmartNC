@@ -74,7 +74,7 @@ Enlèvement de matière en temps réel, une couleur par outil, lecture ligne à 
 - Contournage : extérieur avec ébauche adaptative depuis le brut, ou R0 / RL / RR. Entrées et sorties perpendiculaires, en arc ou en ligne tangente.
 - Fraisage de trou (alésage hélicoïdal).
 - Perçage simple et débourrage, pointage, alésage.
-- Taraudage (non testé : nécessite un codeur sur la broche).
+- Taraudage : cycle à venir.
 - Plongée directe, en hélice ou en rampe, à l'avance pendulaire.
 - Ébauche et finition séparées : surépaisseurs latérale et fond, finition des fonds et des parois.
 - Avalant ou opposition.
