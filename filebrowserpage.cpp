@@ -37,6 +37,91 @@
 #include <QApplication>
 #include <QFile>
 #include <QTextStream>
+#include <QSvgRenderer>
+#include <QHash>
+
+// ── Logos des types de fichiers (dessins SVG, une couleur par type) ──
+static QIcon logoFichier(const QString &type)
+{
+    static QHash<QString, QIcon> cache;
+    if (cache.contains(type)) return cache.value(type);
+    const QString page = QStringLiteral("<path d='M5 2h16l6 6v22H5z' fill='%1'/><path d='M21 2v6h6' fill='%2'/>");
+    QString corps;
+    if (type == "enc")
+        corps = page.arg("#1d4fd8", "#7aa0ff") +
+                "<rect x='9' y='11' width='14' height='4' rx='1' fill='#fff'/>"
+                "<rect x='9' y='17' width='14' height='4' rx='1' fill='#A6CE39'/>"
+                "<rect x='9' y='23' width='14' height='4' rx='1' fill='#fff'/>";
+    else if (type == "nc")
+        corps = page.arg("#0b7a20", "#6cd27d") +
+                "<text x='16' y='20' font-size='9' font-weight='bold' fill='#fff' text-anchor='middle'"
+                " font-family='Consolas' textLength='16' lengthAdjust='spacingAndGlyphs'>G01</text>"
+                "<rect x='9' y='23' width='14' height='1.6' fill='#bfe8c6'/><rect x='9' y='26' width='9' height='1.6' fill='#bfe8c6'/>";
+    else if (type == "dxf")
+        corps = page.arg("#c26a00", "#ffc070") +
+                "<path d='M9 26 V14 H17 A6 6 0 0 1 23 20 V26 Z' fill='none' stroke='#fff' stroke-width='2'/>"
+                "<circle cx='13' cy='21' r='2' fill='none' stroke='#fff' stroke-width='1.5'/>";
+    else if (type == "step")
+        corps = page.arg("#7a3fb0", "#c9a2ee") +
+                "<path d='M16 11 L24 15 L24 24 L16 28 L8 24 L8 15 Z' fill='#e7d8f8'/>"
+                "<path d='M16 11 L24 15 L16 19 L8 15 Z' fill='#fff'/><path d='M16 19 V28' stroke='#7a3fb0' stroke-width='1'/>";
+    else if (type == "cnt")
+        corps = page.arg("#8a1f8a", "#e59ae5") +
+                "<path d='M9 25 L9 15 Q9 12 12 12 L20 12 L23 16 L23 25 Z' fill='none' stroke='#fff' stroke-width='2.2' stroke-linejoin='round'/>"
+                "<path d='M6 25 L10 25' stroke='#FFFF77' stroke-width='2'/>";
+    else if (type == "pnt")
+        corps = page.arg("#00708a", "#7fd6ea") +
+                "<g fill='none' stroke='#fff' stroke-width='1.6'><circle cx='11' cy='15' r='2.3'/><circle cx='21' cy='15' r='2.3'/>"
+                "<circle cx='11' cy='24' r='2.3'/><circle cx='21' cy='24' r='2.3'/></g>"
+                "<path d='M16 17.5 v4 M14 19.5 h4' stroke='#FFFF77' stroke-width='1.4'/>";
+    else
+        corps = page.arg("#878787", "#c8c8c8");
+    const QByteArray svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>" + corps.toUtf8() + "</svg>";
+    QSvgRenderer r(svg);
+    QIcon ic;
+    for (int cote : {28, 56}) {
+        QPixmap pm(cote, cote);
+        pm.fill(Qt::transparent);
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing);
+        r.render(&p);
+        p.end();
+        ic.addPixmap(pm);
+    }
+    cache.insert(type, ic);
+    return ic;
+}
+
+// Ligne de la liste : tri par type (dossiers, .enc, .nc, .dxf, 3D, .cnt, .pnt) puis par nom ;
+// taille et date triées sur leur vraie valeur
+class LigneFichier : public QTreeWidgetItem
+{
+public:
+    using QTreeWidgetItem::QTreeWidgetItem;
+    bool operator<(const QTreeWidgetItem &o) const override
+    {
+        const int col = treeWidget() ? treeWidget()->sortColumn() : 0;
+        if (col == 2) return data(2, Qt::UserRole).toLongLong() < o.data(2, Qt::UserRole).toLongLong();
+        if (col == 3 || col == 4) return data(3, Qt::UserRole).toLongLong() < o.data(3, Qt::UserRole).toLongLong();
+        const int ra = data(1, Qt::UserRole).toInt(), rb = o.data(1, Qt::UserRole).toInt();
+        if (ra != rb) return ra < rb;
+        return text(0).compare(o.text(0), Qt::CaseInsensitive) < 0;
+    }
+};
+
+static int rangType(EazyFileType t, const QString &ext)
+{
+    if (t == EazyFileType::Directory) return 0;
+    if (ext == "stp" || ext == "step" || ext == "igs" || ext == "iges") return 4;
+    switch (t) {
+    case EazyFileType::ENC: return 1;
+    case EazyFileType::NC:  return 2;
+    case EazyFileType::DXF: return 3;
+    case EazyFileType::CNT: return 5;
+    case EazyFileType::PNT: return 6;
+    default:                return 7;
+    }
+}
 
 // ================================================================
 //  Construction
@@ -205,9 +290,11 @@ void FileBrowserPage::loadFilesForDir(const QString &dirPath)
     const QFileInfoList dirs = dir.entryInfoList(
         QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name | QDir::IgnoreCase);
     for (const QFileInfo &fi : dirs) {
-        QTreeWidgetItem *item = new QTreeWidgetItem(ui->treeFiles);
+        QTreeWidgetItem *item = new LigneFichier(ui->treeFiles);
         item->setText(0, fi.fileName().toUpper());
         item->setText(1, "DIR");
+        item->setData(1, Qt::UserRole, 0);
+        item->setData(3, Qt::UserRole, fi.lastModified().toMSecsSinceEpoch());
         item->setText(2, "");
         item->setText(3, fi.lastModified().toString("dd.MM.yyyy"));
         item->setText(4, fi.lastModified().toString("HH:mm"));
@@ -238,7 +325,7 @@ void FileBrowserPage::loadFilesForDir(const QString &dirPath)
 
     for (const QFileInfo &fi : files) {
         EazyFileType type = detectFileType(fi.fileName());
-        QTreeWidgetItem *item = new QTreeWidgetItem(ui->treeFiles);
+        QTreeWidgetItem *item = new LigneFichier(ui->treeFiles);
         item->setText(0, fi.completeBaseName().toUpper());
         // STEP / IGES s'ouvrent dans le même convertisseur que le DXF,
         // mais on affiche leur vrai type (avant : « .DXF », trompeur)
@@ -250,8 +337,12 @@ void FileBrowserPage::loadFilesForDir(const QString &dirPath)
         item->setText(4, fi.lastModified().toString("HH:mm"));
         item->setData(0, Qt::UserRole,     fi.absoluteFilePath());
         item->setData(0, Qt::UserRole + 1, (int)type);
-        item->setIcon(0, modele3D ? makeBadge("#BB6600", "3D") : iconForType(type));
+        item->setIcon(0, modele3D ? logoFichier("step") : iconForType(type));
+        item->setData(1, Qt::UserRole, rangType(type, ext));
+        item->setData(2, Qt::UserRole, fi.size());
+        item->setData(3, Qt::UserRole, fi.lastModified().toMSecsSinceEpoch());
     }
+    ui->treeFiles->sortItems(0, Qt::AscendingOrder);     // classés par type, puis par nom
 
     updateStatusBar();
 
@@ -701,12 +792,12 @@ QString FileBrowserPage::colorForType(EazyFileType type) const
 QIcon FileBrowserPage::iconForType(EazyFileType type) const
 {
     switch (type) {
-    case EazyFileType::ENC: return makeBadge("#0000FF", "E");
-    case EazyFileType::NC:  return makeBadge("#007700", "G");
-    case EazyFileType::DXF: return makeBadge("#BB6600", "X");
-    case EazyFileType::CNT: return makeBadge("#880088", "C");
-    case EazyFileType::PNT: return makeBadge("#006688", "P");
-    default:                return makeBadge("#878787", "?");
+    case EazyFileType::ENC: return logoFichier("enc");
+    case EazyFileType::NC:  return logoFichier("nc");
+    case EazyFileType::DXF: return logoFichier("dxf");
+    case EazyFileType::CNT: return logoFichier("cnt");
+    case EazyFileType::PNT: return logoFichier("pnt");
+    default:                return logoFichier("");
     }
 }
 
