@@ -75,6 +75,10 @@
   .why b { display:block; margin-bottom:4px; }
   .why span { color:var(--muted); font-size:15px; }
   .en { background:var(--panel); }
+  .essai { margin-top:28px; max-width:760px; background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--yellow); border-radius:8px; padding:14px 18px; font-size:15px; color:var(--muted); }
+  .essai b { color:var(--yellow); }
+  .essai p { margin:6px 0 0; }
+  .essai strong { color:var(--text); font-weight:600; }
   .en p { max-width:760px; }
   footer { border-top:1px solid var(--line); padding:28px 0 40px; color:var(--muted); font-size:14px; }
   footer p { margin:6px 0; }
@@ -107,6 +111,12 @@
   <div class="btns">
     <a class="btn primary" href="https://github.com/jbsabrinna-cpu/EazySmartNC">Voir le projet sur GitHub</a>
     <a class="btn ghost" href="https://www.centroidcncforum.com/viewtopic.php?t=12525">Discussion sur le forum Centroid</a>
+  </div>
+  <div class="essai">
+    <b>⚠ Logiciel en phase de test</b>
+    <p>EazySmartNC est en cours de développement et de test. Vérifiez toujours le programme en simulation avant d'usiner, et faites le premier passage avec prudence (avance réduite, Z de sécurité).</p>
+    <p><strong>Configuration de test du développeur :</strong> Intel Core i3-12100F, 16 Go de RAM, carte graphique NVIDIA RTX 3060, Windows 11, Centroid CNC12 Acorn Mill v5.42.10 avec carte Acorn.</p>
+    <p>Le logiciel n'a pas encore été essayé sur des PC plus modestes. Avec une carte graphique intégrée (Intel, AMD) ou peu de mémoire, la simulation 3D et le calcul de l'usinage 3D peuvent être lents. Il faut un pilote graphique à jour (OpenGL).</p>
   </div>
   <div class="tags"><span>Gratuit</span><span>Open source</span><span>Windows</span><span>C++ / Qt 6</span><span>Écrit par un fraiseur</span></div>
   <div class="shot"><img src="images/simulation-poche-etagee.gif" alt="Simulation 3D d'une poche étagée avec îlots dans EazySmartNC" width="640" height="383"></div>
@@ -201,6 +211,12 @@
   <div class="wrap">
     <h2><small>English</small>Conversational CAM for Centroid CNC12</h2>
     <p>EazySmartNC (application <em>EazyNC</em>) is a free, open-source conversational CAM program for <strong>Centroid CNC12</strong> controls (Acorn, AcornSix, Oak), in the spirit of Heidenhain conversational programming. You fill in blocks (stock, pockets, drilling, profiles), the software computes the toolpaths, simulates them in 3D and generates a ready-to-run <code>.nc</code> program. It includes a DXF converter, STEP import for 3D machining, a tool table and an optional live link with CNC12. Written in C++ / Qt 6 by a CNC machinist. The user interface is currently in French.</p>
+    <div class="essai">
+      <b>⚠ Testing stage</b>
+      <p>EazySmartNC is still under development and testing. Always check the program in simulation before machining, and run the first pass with care (reduced feed, safe Z).</p>
+      <p><strong>Developer's test setup:</strong> Intel Core i3-12100F, 16 GB RAM, NVIDIA RTX 3060 graphics card, Windows 11, Centroid CNC12 Acorn Mill v5.42.10 with an Acorn board.</p>
+      <p>Not yet tried on lower-end PCs: with integrated graphics (Intel, AMD) or little memory, 3D simulation and 3D toolpath computation may be slow. An up-to-date graphics driver (OpenGL) is required.</p>
+    </div>
     <div class="btns">
       <a class="btn primary" href="https://github.com/jbsabrinna-cpu/EazySmartNC">View on GitHub</a>
       <a class="btn ghost" href="https://www.centroidcncforum.com/viewtopic.php?t=12525">Centroid forum thread</a>
