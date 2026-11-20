@@ -75,7 +75,8 @@ Real-time stock removal, one color per tool, line-by-line G-code playback.
 - **Contour pocket** with islands, stepped pockets, islands below the top surface, and a start Z per contour.
 - Profile milling: outside with adaptive roughing from the stock, or R0 / RL / RR. Perpendicular, arc or tangent-line lead-in and lead-out.
 - Helical hole milling (boring).
-- Drilling and peck drilling, spot drilling, tapping, reaming.
+- Drilling and peck drilling, spot drilling, reaming.
+- Tapping (not tested: requires a spindle encoder).
 - Straight, helical or ramp plunge, with its own ramp feed.
 - Separate roughing and finishing: side and floor stock, floor and wall finishing.
 - Climb or conventional milling.
