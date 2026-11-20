@@ -929,6 +929,26 @@ static QVector<GCodeLine> buildGCode(const QVector<BlockData> &blocks,
         }
     }
     lines << engine.generateEndProgram(0, gM25RetourOrigine);
+
+    // Même outil que l'opération précédente : pas de « T.. M6 ».
+    // Le M6 appelle la macro de changement d'outil, qui irait palper l'outil
+    // pour rien ; le G43 H, la broche (S, M3) et les avances restent écrits.
+    {
+        static const QRegularExpression reTM6(R"(^\s*T(\d+)\s+M0*6\b)", QRegularExpression::CaseInsensitiveOption);
+        QString enBroche;
+        for (GCodeLine &l : lines) {
+            if (l.type == GCodeLine::Comment || l.type == GCodeLine::Blank) continue;
+            const QRegularExpressionMatch m = reTM6.match(l.code);
+            if (!m.hasMatch()) continue;
+            if (m.captured(1) == enBroche) {
+                l.type    = GCodeLine::Comment;
+                l.comment = QString("T%1 deja en broche : pas de changement d'outil").arg(enBroche);
+                l.code    = "( " + l.comment + " )";
+            } else {
+                enBroche = m.captured(1);
+            }
+        }
+    }
     return lines;
 }
 
